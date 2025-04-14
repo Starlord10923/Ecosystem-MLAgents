@@ -1,0 +1,38 @@
+{
+    "AgentMazeComplex": {
+        "checkpoints": [
+            {
+                "steps": 499992,
+                "file_path": "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-499992.onnx",
+                "reward": 21.36841944232583,
+                "creation_time": 1744667007.8687005,
+                "auxillary_file_paths": [
+                    "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-499992.pt"
+                ]
+            },
+            {
+                "steps": 500011,
+                "file_path": "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-500011.onnx",
+                "reward": 21.35130068238119,
+                "creation_time": 1744667007.9114144,
+                "auxillary_file_paths": [
+                    "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-500011.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 500011,
+            "file_path": "results\\MazeComplex\\AgentMazeComplex.onnx",
+            "reward": 21.35130068238119,
+            "creation_time": 1744667007.9114144,
+            "auxillary_file_paths": [
+                "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-500011.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.30.0",
+        "torch_version": "2.6.0+cpu"
+    }
+}

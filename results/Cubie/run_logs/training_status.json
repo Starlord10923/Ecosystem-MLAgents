@@ -1,0 +1,38 @@
+{
+    "Agent Controller": {
+        "checkpoints": [
+            {
+                "steps": 499999,
+                "file_path": "results\\Cubie\\Agent Controller\\Agent Controller-499999.onnx",
+                "reward": 0.6137910826350447,
+                "creation_time": 1744656055.2969153,
+                "auxillary_file_paths": [
+                    "results\\Cubie\\Agent Controller\\Agent Controller-499999.pt"
+                ]
+            },
+            {
+                "steps": 500007,
+                "file_path": "results\\Cubie\\Agent Controller\\Agent Controller-500007.onnx",
+                "reward": 0.6142838020314539,
+                "creation_time": 1744656055.3381603,
+                "auxillary_file_paths": [
+                    "results\\Cubie\\Agent Controller\\Agent Controller-500007.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 500007,
+            "file_path": "results\\Cubie\\Agent Controller.onnx",
+            "reward": 0.6142838020314539,
+            "creation_time": 1744656055.3381603,
+            "auxillary_file_paths": [
+                "results\\Cubie\\Agent Controller\\Agent Controller-500007.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.30.0",
+        "torch_version": "2.6.0+cpu"
+    }
+}

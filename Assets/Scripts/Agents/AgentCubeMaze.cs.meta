@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 33aa1c3555192f24296e544c5d1142a8
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - target: {instanceID: 0}
+  - winMaterial: {fileID: 2100000, guid: 32baecaeee2e1e74a8b108b713faa761, type: 2}
+  - loseMaterial: {fileID: 2100000, guid: 62511a1a67aadaa49b9f9350a5558ae9, type: 2}
+  - floorMeshRenderer: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
