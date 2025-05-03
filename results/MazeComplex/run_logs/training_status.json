@@ -2,31 +2,58 @@
     "AgentMazeComplex": {
         "checkpoints": [
             {
-                "steps": 499992,
-                "file_path": "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-499992.onnx",
-                "reward": 21.36841944232583,
-                "creation_time": 1744667007.8687005,
+                "steps": 3499965,
+                "file_path": "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-3499965.onnx",
+                "reward": 39.08281372755002,
+                "creation_time": 1746295512.8892522,
                 "auxillary_file_paths": [
-                    "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-499992.pt"
+                    "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-3499965.pt"
                 ]
             },
             {
-                "steps": 500011,
-                "file_path": "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-500011.onnx",
-                "reward": 21.35130068238119,
-                "creation_time": 1744667007.9114144,
+                "steps": 3999992,
+                "file_path": "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-3999992.onnx",
+                "reward": 39.005592135434654,
+                "creation_time": 1746295967.6982813,
                 "auxillary_file_paths": [
-                    "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-500011.pt"
+                    "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-3999992.pt"
+                ]
+            },
+            {
+                "steps": 4499996,
+                "file_path": "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-4499996.onnx",
+                "reward": 39.91124986921038,
+                "creation_time": 1746296429.4563036,
+                "auxillary_file_paths": [
+                    "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-4499996.pt"
+                ]
+            },
+            {
+                "steps": 4999995,
+                "file_path": "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-4999995.onnx",
+                "reward": 39.02726513305167,
+                "creation_time": 1746296873.490422,
+                "auxillary_file_paths": [
+                    "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-4999995.pt"
+                ]
+            },
+            {
+                "steps": 5000007,
+                "file_path": "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-5000007.onnx",
+                "reward": 39.01880077424088,
+                "creation_time": 1746296873.5290327,
+                "auxillary_file_paths": [
+                    "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-5000007.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 500011,
+            "steps": 5000007,
             "file_path": "results\\MazeComplex\\AgentMazeComplex.onnx",
-            "reward": 21.35130068238119,
-            "creation_time": 1744667007.9114144,
+            "reward": 39.01880077424088,
+            "creation_time": 1746296873.5290327,
             "auxillary_file_paths": [
-                "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-500011.pt"
+                "results\\MazeComplex\\AgentMazeComplex\\AgentMazeComplex-5000007.pt"
             ]
         }
     },
