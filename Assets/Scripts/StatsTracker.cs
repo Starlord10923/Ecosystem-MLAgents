@@ -2,17 +2,15 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
-public class AgentStats
+public class AgentPerformance
 {
     public int wins;
     public int losses;
     public float totalScore;
 }
 
-public class StatsTracker : MonoBehaviour
+public class StatsTracker : Singleton<StatsTracker>
 {
-    public static StatsTracker Instance;
-
     [Header("Global Totals")]
     public int totalEpisodes;
     public int totalWins;
@@ -22,29 +20,19 @@ public class StatsTracker : MonoBehaviour
 
     [Header("Tracked Agents")]
     [SerializeField] private List<AgentController> trackedAgents = new();
-    private Dictionary<AgentController, AgentStats> agentStatsDict = new();
+    private Dictionary<AgentController, AgentPerformance> AgentPerformanceDict = new();
 
     [Header("Debug View - [Wins, Losses, TotalScore]")]
     public List<Vector3> Stats = new(); // Each Vector3 = (wins, losses, totalScore)
 
     public bool RecordStats = true;
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(this);
-            return;
-        }
-        Instance = this;
-    }
-
     public void RegisterAgent(AgentController agent)
     {
-        if (!agentStatsDict.ContainsKey(agent))
+        if (!AgentPerformanceDict.ContainsKey(agent))
         {
-            AgentStats stats = new AgentStats();
-            agentStatsDict[agent] = stats;
+            AgentPerformance stats = new AgentPerformance();
+            AgentPerformanceDict[agent] = stats;
             trackedAgents.Add(agent);
             Stats.Add(Vector3.zero); // Reserve slot for this agent
         }
@@ -57,7 +45,7 @@ public class StatsTracker : MonoBehaviour
         totalEpisodes++;
         totalWins++;
 
-        if (agentStatsDict.TryGetValue(agent, out var stats))
+        if (AgentPerformanceDict.TryGetValue(agent, out var stats))
         {
             stats.wins++;
 
@@ -76,7 +64,7 @@ public class StatsTracker : MonoBehaviour
         totalEpisodes++;
         totalLosses++;
 
-        if (agentStatsDict.TryGetValue(agent, out var stats))
+        if (AgentPerformanceDict.TryGetValue(agent, out var stats))
         {
             stats.losses++;
 
@@ -91,7 +79,7 @@ public class StatsTracker : MonoBehaviour
     {
         if (!RecordStats || reward == 0f) return;
 
-        if (agentStatsDict.TryGetValue(agent, out var stats))
+        if (AgentPerformanceDict.TryGetValue(agent, out var stats))
         {
             stats.totalScore += reward;
 

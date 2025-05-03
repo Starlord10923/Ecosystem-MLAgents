@@ -6,6 +6,10 @@ TagManager:
   tags:
   - Wall
   - Target
+  - Prey
+  - Predator
+  - Food
+  - Water
   layers:
   - Default
   - TransparentFX
