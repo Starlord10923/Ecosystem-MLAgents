@@ -1,0 +1,386 @@
+
+
+--- FILE: Agents\AgentAnimalBase.cs ---
+using UnityEngine;
+
+public class AgentAnimalBase : AgentBase
+{
+    protected virtual void OnTriggerEnter(Collider other)
+    {
+        if (other.TryGetComponent<Food>(out var food) && stats.hunger < 1f)
+        {
+            Eat(food.nutrition);
+            AddReward(0.2f);
+            Destroy(other.gameObject);
+        }
+        else if (other.TryGetComponent<Water>(out var water) && stats.thirst < 1f)
+        {
+            Drink(water.hydration);
+            AddReward(0.2f);
+            Destroy(other.gameObject);
+        }
+    }
+
+    protected void Eat(float amt) => stats.Eat(amt);
+    protected void Drink(float amt) => stats.Drink(amt);
+}
+
+
+--- FILE: Agents\AgentBase.cs ---
+using Unity.MLAgents;
+using UnityEngine;
+
+[RequireComponent(typeof(Rigidbody))]
+public class AgentBase : Agent
+{
+    protected Rigidbody rb;
+    protected Vector2 currentMove;
+    protected float brake;
+    public AgentStats stats;
+    public float maxSpeed;
+
+    protected virtual void Awake() => rb = GetComponent<Rigidbody>();
+
+    public virtual void InitializeStats(AgentStats inherited = null)
+    {
+        stats = inherited ?? new AgentStats(Random.Range(2f, 4f), Random.Range(1.5f, 2.5f), Random.Range(8f, 12f));
+        maxSpeed = stats.speed;
+        transform.localScale = Vector3.one * stats.CurrentSize;
+    }
+
+    public virtual void FixedUpdate()
+    {
+        stats.TickDecay(Time.fixedDeltaTime);
+
+        if (!stats.IsAlive)
+        {
+            AddReward(-1f);
+            Die();
+            return;
+        }
+
+        RewardManager.Instance.EvaluatePenalty(this);
+
+        Vector3 moveDir = transform.TransformDirection(new Vector3(currentMove.x, 0, currentMove.y));
+        Vector3 desiredVel = (1f - brake) * maxSpeed * moveDir.normalized;
+
+        if (Physics.Raycast(transform.position, Vector3.down, 1.1f, LayerMask.GetMask("Ground")))
+        {
+            rb.velocity = new Vector3(desiredVel.x, rb.velocity.y, desiredVel.z);
+
+            if (moveDir != Vector3.zero)
+            {
+                Quaternion targetRot = Quaternion.LookRotation(moveDir);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, 10f * Time.fixedDeltaTime);
+            }
+        }
+
+        transform.localScale = Vector3.one * stats.CurrentSize;
+    }
+
+    public virtual void Die() { }
+}
+
+
+--- FILE: Agents\AgentStats.cs ---
+using UnityEngine;
+
+[System.Serializable]
+public class AgentStats
+{
+    public float hunger = 1f;
+    public float thirst = 1f;
+
+    public float speed;
+    public float sightRange;
+    public float maxSize;
+
+    public float hungerDecayRate = 0.005f;
+    public float thirstDecayRate = 0.0075f;
+
+    public float lifetime = 60f;
+    public float growthTime = 20f;
+    public float age = 0f;
+
+    public float CurrentSize => Mathf.Lerp(1f, maxSize, Mathf.Clamp01(age / growthTime));
+    public bool IsAdult => age >= growthTime;
+    public bool IsAlive => hunger > 0.1f && thirst > 0.1f && age < lifetime;
+
+    public AgentStats() { }
+
+    public AgentStats(float speed, float maxSize, float sightRange)
+    {
+        this.speed = speed;
+        this.maxSize = maxSize;
+        this.sightRange = sightRange;
+    }
+
+    public void TickDecay(float dt)
+    {
+        age += dt;
+        hunger -= hungerDecayRate * dt;
+        thirst -= thirstDecayRate * dt;
+        hunger = Mathf.Clamp01(hunger);
+        thirst = Mathf.Clamp01(thirst);
+    }
+
+    public void Eat(float amount) => hunger = Mathf.Clamp01(hunger + amount);
+    public void Drink(float amount) => thirst = Mathf.Clamp01(thirst + amount);
+    public bool CanMate => IsAdult && hunger >= 0.7f && thirst >= 0.7f;
+}
+
+
+--- FILE: Agents\PredatorAgent.cs ---
+using Unity.MLAgents.Actuators;
+using UnityEngine;
+
+public class PredatorAgent : AgentAnimalBase
+{
+    public override void OnEpisodeBegin()
+    {
+        InitializeStats();
+        transform.position = EcosystemManager.Instance.GetSpawnPosition();
+        rb.velocity = Vector3.zero;
+    }
+
+    public override void CollectObservations(Unity.MLAgents.Sensors.VectorSensor sensor)
+    {
+        sensor.AddObservation(stats.hunger);
+        sensor.AddObservation(stats.thirst);
+        sensor.AddObservation(stats.CanMate ? 1f : 0f);
+        sensor.AddObservation(stats.CurrentSize / 3f);
+        sensor.AddObservation(stats.maxSize / 3f);
+        sensor.AddObservation(stats.speed / 5f);
+    }
+
+    public override void OnActionReceived(ActionBuffers actions)
+    {
+        currentMove = new Vector2(actions.ContinuousActions[0], actions.ContinuousActions[1]);
+        brake = Mathf.Clamp01(actions.DiscreteActions[0]);
+    }
+
+    public override void Die()
+    {
+        AddReward(-1f);
+        EcosystemManager.Instance.Despawn(gameObject);
+        EndEpisode();
+    }
+
+    protected override void OnTriggerEnter(Collider other)
+    {
+        base.OnTriggerEnter(other);
+        if (other.TryGetComponent<PreyAgent>(out var prey))
+        {
+            if (prey.stats.CurrentSize <= stats.CurrentSize)
+            {
+                AddReward(1f);
+                prey.AddReward(-1f);
+                prey.Die();
+                stats.Eat(0.6f);
+            }
+        }
+    }
+}
+
+
+--- FILE: Agents\PreyAgent.cs ---
+
+using Unity.MLAgents.Actuators;
+using UnityEngine;
+
+public class PreyAgent : AgentAnimalBase
+{
+    public override void OnEpisodeBegin()
+    {
+        InitializeStats();
+        transform.position = EcosystemManager.Instance.GetSpawnPosition();
+        rb.velocity = Vector3.zero;
+    }
+
+    public override void CollectObservations(Unity.MLAgents.Sensors.VectorSensor sensor)
+    {
+        sensor.AddObservation(stats.hunger);
+        sensor.AddObservation(stats.thirst);
+        sensor.AddObservation(stats.CanMate ? 1f : 0f);
+        sensor.AddObservation(stats.CurrentSize / 3f);
+        sensor.AddObservation(stats.maxSize / 3f);
+        sensor.AddObservation(stats.speed / 5f);
+    }
+
+    public override void OnActionReceived(ActionBuffers actions)
+    {
+        currentMove = new Vector2(actions.ContinuousActions[0], actions.ContinuousActions[1]);
+        brake = Mathf.Clamp01(actions.DiscreteActions[0]);
+    }
+
+    public override void Die()
+    {
+        AddReward(-1f);
+        EcosystemManager.Instance.Despawn(gameObject);
+        EndEpisode();
+    }
+}
+
+
+--- FILE: Environment\EcosystemManager.cs ---
+using UnityEngine;
+using System.Collections.Generic;
+
+public class EcosystemManager : Singleton<EcosystemManager>
+{
+    public GameObject preyPrefab, predatorPrefab;
+    public Vector2 bounds = new(20, 20);
+
+    public Vector3 GetSpawnPosition()
+    {
+        return new Vector3(Random.Range(-bounds.x, bounds.x), 0.5f, Random.Range(-bounds.y, bounds.y));
+    }
+
+    public void Despawn(GameObject agent) => Destroy(agent);
+}
+
+
+--- FILE: Environment\Food.cs ---
+using UnityEngine;
+
+public class Food : MonoBehaviour
+{
+    public float nutrition = 0.4f;
+}
+
+
+--- FILE: Environment\RewardManager.cs ---
+using Unity.VisualScripting;
+using UnityEngine;
+
+public class RewardManager : Singleton<RewardManager>
+{
+    public void EvaluatePenalty(AgentBase agent)
+    {
+        float hunger = agent.stats.hunger;
+        float thirst = agent.stats.thirst;
+
+        float penalty = 0f;
+        penalty += GetPenalty(hunger);
+        penalty += GetPenalty(thirst);
+
+        agent.AddReward(penalty * Time.fixedDeltaTime);
+    }
+
+    private float GetPenalty(float value)
+    {
+        if (value >= 0.7f) return 0f;
+        else if (value >= 0.3f) return -0.0025f * ((0.7f - value) / 0.1f);
+        else return -0.01f * ((0.3f - value) / 0.1f);
+    }
+}
+
+
+--- FILE: Environment\SpawnerManager.cs ---
+using System.Collections.Generic;
+using UnityEngine;
+
+public class SpawnerManager : MonoBehaviour
+{
+    [Header("Prefabs")]
+    public List<GameObject> preyPrefabs;
+    public List<GameObject> predatorPrefabs;
+    public List<GameObject> foodPrefabs;
+    public GameObject waterPrefab;
+
+    [Header("Environment Bounds")]
+    public float spawnRadius = 20f;
+
+    [Header("Spawn Settings")]
+    public int initialPrey = 10;
+    public int initialPredators = 5;
+    public int initialFood = 20;
+    public int initialWater = 10;
+
+
+    public bool spawnPrey = true;
+    public bool spawnPredators = false;
+
+    void Start()
+    {
+        if (spawnPrey)
+            Spawn(preyPrefabs, initialPrey, "Prey");
+        if (spawnPredators)
+            Spawn(predatorPrefabs, initialPredators, "Predators");
+        Spawn(foodPrefabs, initialFood, "Food");
+        Spawn(waterPrefab, initialWater, "Water");
+    }
+
+    void Spawn(List<GameObject> prefabs, int count, string type)
+    {
+        if (prefabs.Count == 0 || count <= 0)
+        {
+            Debug.LogWarning("No prefabs to spawn.");
+            return;
+        }
+
+        Transform parent = new GameObject($"Spawned-{type}").transform;
+
+        for (int i = 0; i < count; i++)
+        {
+            Vector3 pos = RandomSpawnPosition();
+            int index = Random.Range(0, prefabs.Count);
+            Instantiate(prefabs[index], pos, Quaternion.identity, parent);
+        }
+    }
+
+    void Spawn(GameObject prefab, int count, string type)
+    {
+        if (prefab == null || count <= 0)
+        {
+            Debug.LogWarning("No prefab to spawn.");
+            return;
+        }
+
+        Transform parent = new GameObject($"Spawned-{type}").transform;
+
+        for (int i = 0; i < count; i++)
+        {
+            Vector3 pos = RandomSpawnPosition();
+            Instantiate(prefab, pos, Quaternion.identity, parent);
+        }
+    }
+
+    Vector3 RandomSpawnPosition()
+    {
+        float x = Random.Range(-spawnRadius, spawnRadius);
+        float z = Random.Range(-spawnRadius, spawnRadius);
+        return new Vector3(x, 0.5f, z);
+    }
+}
+
+
+--- FILE: Environment\Water.cs ---
+using UnityEngine;
+
+public class Water : MonoBehaviour
+{
+    public float hydration = 0.4f;
+}
+
+
+--- FILE: Utilities\GeneticUtility.cs ---
+using UnityEngine;
+
+public static class GeneticUtility
+{
+    public static float Blend(float a, float b, float mutationRange = 0.05f)
+    {
+        float baseValue = Mathf.Lerp(a, b, Random.value);
+        return baseValue + Random.Range(-mutationRange, mutationRange);
+    }
+
+    public static AgentStats Inherit(AgentStats p1, AgentStats p2)
+    {
+        return new AgentStats(
+            Blend(p1.speed, p2.speed),
+            Blend(p1.maxSize, p2.maxSize),
+            Blend(p1.sightRange, p2.sightRange)
+        );
+    }
+}

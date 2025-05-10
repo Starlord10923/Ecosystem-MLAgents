@@ -7,14 +7,14 @@ public class AgentAnimalBase : AgentBase
         if (other.TryGetComponent<Food>(out var food) && stats.hunger < 1f)
         {
             Eat(food.nutrition);
-            Destroy(other.gameObject);
             AddReward(0.2f);
+            Destroy(other.gameObject);
         }
         else if (other.TryGetComponent<Water>(out var water) && stats.thirst < 1f)
         {
             Drink(water.hydration);
-            Destroy(other.gameObject);
             AddReward(0.2f);
+            Destroy(other.gameObject);
         }
     }
 

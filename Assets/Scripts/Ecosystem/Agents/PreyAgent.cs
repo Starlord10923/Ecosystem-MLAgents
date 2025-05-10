@@ -16,8 +16,9 @@ public class PreyAgent : AgentAnimalBase
         sensor.AddObservation(stats.hunger);
         sensor.AddObservation(stats.thirst);
         sensor.AddObservation(stats.CanMate ? 1f : 0f);
+        sensor.AddObservation(stats.CurrentSize / 3f);
+        sensor.AddObservation(stats.maxSize / 3f);
         sensor.AddObservation(stats.speed / 5f);
-        sensor.AddObservation(stats.size / 2f);
     }
 
     public override void OnActionReceived(ActionBuffers actions)
@@ -26,7 +27,7 @@ public class PreyAgent : AgentAnimalBase
         brake = Mathf.Clamp01(actions.DiscreteActions[0]);
     }
 
-    protected override void Die()
+    public override void Die()
     {
         AddReward(-1f);
         EcosystemManager.Instance.Despawn(gameObject);
