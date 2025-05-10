@@ -9,8 +9,13 @@ public class AgentBase : Agent
     protected float brake;
     public AgentStats stats;
     public float maxSpeed;
+    [SerializeField] AnimalBar animalBar;
 
-    protected virtual void Awake() => rb = GetComponent<Rigidbody>();
+    protected virtual void Awake()
+    {
+        rb = GetComponent<Rigidbody>();
+        animalBar = GetComponentInChildren<AnimalBar>();
+    }
 
     public virtual void InitializeStats(AgentStats inherited = null)
     {
@@ -25,19 +30,18 @@ public class AgentBase : Agent
 
         if (!stats.IsAlive)
         {
-            AddReward(-1f);
             Die();
             return;
         }
 
-        RewardManager.Instance.EvaluatePenalty(this);
+        RewardUtility.Instance.AddDecayPenalty(this, stats.hunger, stats.thirst);
 
         Vector3 moveDir = transform.TransformDirection(new Vector3(currentMove.x, 0, currentMove.y));
         Vector3 desiredVel = (1f - brake) * maxSpeed * moveDir.normalized;
 
         if (Physics.Raycast(transform.position, Vector3.down, 1.1f, LayerMask.GetMask("Ground")))
         {
-            rb.velocity = new Vector3(desiredVel.x, rb.velocity.y, desiredVel.z);
+            rb.velocity = new Vector3(desiredVel.x, 0f, desiredVel.z);
 
             if (moveDir != Vector3.zero)
             {
@@ -46,8 +50,9 @@ public class AgentBase : Agent
             }
         }
 
-        transform.localScale = Vector3.one * stats.CurrentSize;
+        UpdateSize();
     }
 
+    public virtual void UpdateSize() { }
     public virtual void Die() { }
 }

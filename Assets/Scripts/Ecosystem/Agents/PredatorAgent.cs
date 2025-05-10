@@ -28,23 +28,8 @@ public class PredatorAgent : AgentAnimalBase
 
     public override void Die()
     {
-        AddReward(-1f);
-        EcosystemManager.Instance.Despawn(gameObject);
+        base.Die();
+        EcosystemManager.Instance.Remove(gameObject);
         EndEpisode();
-    }
-
-    protected override void OnTriggerEnter(Collider other)
-    {
-        base.OnTriggerEnter(other);
-        if (other.TryGetComponent<PreyAgent>(out var prey))
-        {
-            if (prey.stats.CurrentSize <= stats.CurrentSize)
-            {
-                AddReward(1f);
-                prey.AddReward(-1f);
-                prey.Die();
-                stats.Eat(0.6f);
-            }
-        }
     }
 }

@@ -1,9 +1,15 @@
-
 using Unity.MLAgents.Actuators;
 using UnityEngine;
 
 public class PreyAgent : AgentAnimalBase
 {
+    private SustainedConsumable sustainedConsumable;
+    protected override void Awake()
+    {
+        base.Awake();
+        sustainedConsumable = GetComponent<SustainedConsumable>();
+    }
+
     public override void OnEpisodeBegin()
     {
         InitializeStats();
@@ -27,10 +33,22 @@ public class PreyAgent : AgentAnimalBase
         brake = Mathf.Clamp01(actions.DiscreteActions[0]);
     }
 
+    public override void UpdateSize()
+    {
+        if (transform.localScale.y != stats.CurrentSize)
+        {
+            transform.localScale = Vector3.one * stats.CurrentSize;
+            if (this is PreyAgent)
+            {
+                GetComponent<SustainedConsumable>().UpdateFromSize(stats.CurrentSize);
+            }
+        }
+    }
+    
     public override void Die()
     {
-        AddReward(-1f);
-        EcosystemManager.Instance.Despawn(gameObject);
+        base.Die();
+        EcosystemManager.Instance.Remove(gameObject);
         EndEpisode();
     }
 }
