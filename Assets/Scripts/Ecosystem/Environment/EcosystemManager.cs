@@ -12,13 +12,42 @@ public class EcosystemManager : Singleton<EcosystemManager>
     private readonly HashSet<AgentBase> liveAgents = new();
     private bool isResettingEnvironment = false;
 
+    // EcosystemManager.cs (inside EcosystemManager class)
+
+    [Header("Ecosystem Metrics")]
+    public int totalEpisodes = 0;
+    public float totalRewardGiven = 0f;
+    public float totalPenaltyGiven = 0f;
+    public int totalPreySpawned = 0;
+    public int totalPredatorsSpawned = 0;
+    public int currentPreyCount = 0;
+    public int currentPredatorCount = 0;
+    public int foodConsumed = 0;
+    public int waterConsumed = 0;
+    public int animalKilled = 0;
+    public int totalMating = 0;
+    public float partialMatingReward = 0f;
+    public int reachedLifeEnd = 0;
+
     public void Register(AgentBase agent)
     {
         liveAgents.Add(agent);
+        if (agent is PreyAgent)
+        {
+            currentPreyCount += 1;
+            totalPreySpawned += 1;
+        }
+        else
+        {
+            currentPredatorCount += 1;
+            totalPredatorsSpawned += 1;
+        }
     }
     public void Unregister(AgentBase agent)
     {
         liveAgents.Remove(agent);
+        if (agent is PreyAgent) currentPreyCount -= 1;
+        else currentPredatorCount -= 1;
 
         // if everyone died, restart environment & episode
         if (liveAgents.Count == 0 && !isResettingEnvironment)
@@ -26,17 +55,26 @@ public class EcosystemManager : Singleton<EcosystemManager>
             ResetEnvironment();
         }
     }
-    
+
+    private static readonly List<AgentBase> agentBuffer = new(128);
     private void FixedUpdate()
     {
-        // 1) record current population size
-        Stats.RecordSurvival(liveAgents.Count);
+        int count = liveAgents.Count;
+        if (count == 0)
+            return;
 
         float ageSum = 0f;
-        foreach (var agent in liveAgents)
-            ageSum += agent.stats.age;
 
-        Stats.RecordMeanAge(ageSum / liveAgents.Count);
+        agentBuffer.Clear();
+        agentBuffer.AddRange(liveAgents); // avoids HashSet enumeration allocation
+
+        for (int i = 0; i < agentBuffer.Count; i++)
+        {
+            ageSum += agentBuffer[i].stats.age;
+        }
+
+        Stats.RecordSurvival(count);
+        Stats.RecordMeanAge(ageSum / count);
     }
 
     public Vector3 GetSpawnPosition(int quadrant = 0)
@@ -87,6 +125,7 @@ public class EcosystemManager : Singleton<EcosystemManager>
             return;
 
         isResettingEnvironment = true;
+        totalEpisodes += 1;
 
         Telemetry.Instance.OnEpisodeEnd();
 

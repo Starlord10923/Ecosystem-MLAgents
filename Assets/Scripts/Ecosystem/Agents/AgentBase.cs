@@ -60,27 +60,31 @@ public class AgentBase : Agent
             sensor.RayLength = baseRay * stats.sightRange;
     }
 
-    public virtual void FixedUpdate()
+    private Vector3 moveDir = Vector3.zero;
+    private Vector3 desiredXZ = Vector3.zero;
+    public void FixedUpdate()
     {
         stats.TickDecay(Time.fixedDeltaTime);
 
         if (!stats.IsAlive)
         {
+            if (stats.LivedFullLife)
+                EcosystemManager.Instance.reachedLifeEnd += 1;
             Die();
             return;
         }
 
         RewardUtility.AddDecayPenalty(this, stats.hunger, stats.thirst);
 
-        // Interpret currentMove.y as forward/backward
-        Vector3 moveDir = transform.forward * currentMove.y;
-        Vector3 desiredXZ = (1f - brake) * maxSpeed * moveDir.normalized;
-        Vector3 prevVel = rb.velocity;
+        // Compute movement
+        moveDir.Set(transform.forward.x * currentMove.y, 0f, transform.forward.z * currentMove.y);
+        float speedFactor = (1f - brake) * maxSpeed;
 
-        rb.velocity = new Vector3(desiredXZ.x, rb.velocity.y, desiredXZ.z);
+        desiredXZ.Set(moveDir.x * speedFactor, rb.velocity.y, moveDir.z * speedFactor);
+        rb.velocity = desiredXZ;
 
-        CustomLogger.Log($"MoveDir: {moveDir}, Brake: {brake}, MaxSpeed: {maxSpeed}, Velocity: {rb.velocity}, PreviousVelocity: {prevVel}");
-        // Rotate based on currentMove.x (A/D keys)
+        // CustomLogger.Log($"MoveDir: {moveDir}, Brake: {brake:F2}, MaxSpeed: {maxSpeed:F2}, Velocity: {rb.velocity}, PreviousVelocity: {prevVelocity}");
+        // Rotation
         if (Mathf.Abs(currentMove.x) > 0.01f)
         {
             float turnSpeed = 120f; // degrees per second
@@ -90,9 +94,11 @@ public class AgentBase : Agent
         UpdateSize();
     }
 
+
     public virtual void UpdateSize() { }
     public virtual void Die()
     {
+        // Debug.Log($"Animal is Dead : {gameObject.name}");
         Telemetry.Instance.OnAgentDeath();
         Telemetry.Instance.AddReward(GetCumulativeReward());
     }

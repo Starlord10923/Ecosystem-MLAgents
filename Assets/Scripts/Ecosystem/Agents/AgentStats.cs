@@ -100,6 +100,7 @@ public class AgentStats
     }
 
     public bool CanMate => IsAdult && hunger >= 0.7f && thirst >= 0.7f;
+    public bool LivedFullLife => age >= MaxLifetime;
 
     public static AgentStats Clone(AgentStats source)
     {

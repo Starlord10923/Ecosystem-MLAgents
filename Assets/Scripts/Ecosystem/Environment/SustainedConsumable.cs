@@ -78,6 +78,22 @@ public class SustainedConsumable : MonoBehaviour
 
         remainingValue -= consumed;
         remainingValue = Mathf.Max(0f, remainingValue);
+
+        if (remainingValue <= 0)
+        {
+            switch (consumableType)
+            {
+                case Type.Food:
+                    EcosystemManager.Instance.foodConsumed += 1;
+                    break;
+                case Type.Water:
+                    EcosystemManager.Instance.waterConsumed += 1;
+                    break;
+                case Type.Prey:
+                    EcosystemManager.Instance.animalKilled += 1;
+                    break;
+            }
+        }
         return consumed;
     }
 }

@@ -11,10 +11,18 @@ public class Telemetry : Singleton<Telemetry>
     protected override void Awake()
     {
         base.Awake();
-        csvPath = Path.Combine(Application.persistentDataPath,
-                               $"ecosim_{System.DateTime.Now:yyyyMMdd_HHmmss}.csv");
+
+        // Create folder if it doesn't exist
+        string telemetryDir = Path.Combine(Application.dataPath, "Telemetry");
+        if (!Directory.Exists(telemetryDir))
+            Directory.CreateDirectory(telemetryDir);
+
+        csvPath = Path.Combine(telemetryDir, $"ecosim_{System.DateTime.Now:yyyyMMdd_HHmmss}.csv");
+
         writer = new StreamWriter(csvPath);
         writer.WriteLine("episode,startTime,endTime,aliveTime,spawned,dead,rewardSum");
+
+        Debug.Log($"[Telemetry] Logging to: {csvPath}");
     }
 
     /* ---------- environment level ---------- */

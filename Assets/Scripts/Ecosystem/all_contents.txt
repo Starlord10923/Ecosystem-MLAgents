@@ -15,6 +15,7 @@ public abstract class AgentAnimalBase : AgentBase
 
     protected virtual void OnTriggerEnter(Collider other)
     {
+        // Debug.Log("Triggered : " + other.name);
         if (other.CompareTag("Wall"))
             RewardUtility.AddWallHitPenalty(this);
 
@@ -61,7 +62,7 @@ public abstract class AgentAnimalBase : AgentBase
             }
 
             float consumed = Mathf.Min(target.valuePerTick, target.remainingValue);
-            if (consumed <= 0f)
+            if (target.remainingValue <= 0f)
             {
                 StopCurrentConsumption();
                 yield break;
@@ -260,7 +261,9 @@ public class AgentBase : Agent
             sensor.RayLength = baseRay * stats.sightRange;
     }
 
-    public virtual void FixedUpdate()
+    private Vector3 moveDir = Vector3.zero;
+    private Vector3 desiredXZ = Vector3.zero;
+    public void FixedUpdate()
     {
         stats.TickDecay(Time.fixedDeltaTime);
 
@@ -272,15 +275,15 @@ public class AgentBase : Agent
 
         RewardUtility.AddDecayPenalty(this, stats.hunger, stats.thirst);
 
-        // Interpret currentMove.y as forward/backward
-        Vector3 moveDir = transform.forward * currentMove.y;
-        Vector3 desiredXZ = (1f - brake) * maxSpeed * moveDir.normalized;
-        Vector3 prevVel = rb.velocity;
+        // Compute movement
+        moveDir.Set(transform.forward.x * currentMove.y, 0f, transform.forward.z * currentMove.y);
+        float speedFactor = (1f - brake) * maxSpeed;
 
-        rb.velocity = new Vector3(desiredXZ.x, rb.velocity.y, desiredXZ.z);
+        desiredXZ.Set(moveDir.x * speedFactor, rb.velocity.y, moveDir.z * speedFactor);
+        rb.velocity = desiredXZ;
 
-        CustomLogger.Log($"MoveDir: {moveDir}, Brake: {brake}, MaxSpeed: {maxSpeed}, Velocity: {rb.velocity}, PreviousVelocity: {prevVel}");
-        // Rotate based on currentMove.x (A/D keys)
+        // CustomLogger.Log($"MoveDir: {moveDir}, Brake: {brake:F2}, MaxSpeed: {maxSpeed:F2}, Velocity: {rb.velocity}, PreviousVelocity: {prevVelocity}");
+        // Rotation
         if (Mathf.Abs(currentMove.x) > 0.01f)
         {
             float turnSpeed = 120f; // degrees per second
@@ -290,9 +293,11 @@ public class AgentBase : Agent
         UpdateSize();
     }
 
+
     public virtual void UpdateSize() { }
     public virtual void Die()
     {
+        Debug.Log($"Animal is Dead : {gameObject.name}");
         Telemetry.Instance.OnAgentDeath();
         Telemetry.Instance.AddReward(GetCumulativeReward());
     }
@@ -564,6 +569,11 @@ public class AnimalBar : MonoBehaviour
 
     public void SetStats(AgentStats newStats) => stats = newStats;
 
+    private void Start()
+    {
+        if (!EcosystemManager.Instance.showValues) gameObject.SetActive(false);
+    }
+
     private void Update()
     {
         if (stats == null) return;
@@ -591,7 +601,8 @@ public class EcosystemManager : Singleton<EcosystemManager>
 {
     public GameObject Environment;
     public Vector2 bounds = new(20, 20);
-    public bool UseHeuristicControl = true;  // Toggle globally in Inspector or via UI
+    public bool UseHeuristicControl = false;  // Toggle globally in Inspector or via UI
+    public bool showValues = false;
 
     /* ─── Active-agent tracking ─── */
     private readonly HashSet<AgentBase> liveAgents = new();
@@ -612,16 +623,25 @@ public class EcosystemManager : Singleton<EcosystemManager>
         }
     }
     
+    private static readonly List<AgentBase> agentBuffer = new(128);
     private void FixedUpdate()
     {
-        // 1) record current population size
-        Stats.RecordSurvival(liveAgents.Count);
+        int count = liveAgents.Count;
+        if (count == 0)
+            return;
 
         float ageSum = 0f;
-        foreach (var agent in liveAgents)
-            ageSum += agent.stats.age;
 
-        Stats.RecordMeanAge(ageSum / liveAgents.Count);
+        agentBuffer.Clear();
+        agentBuffer.AddRange(liveAgents); // avoids HashSet enumeration allocation
+
+        for (int i = 0; i < agentBuffer.Count; i++)
+        {
+            ageSum += agentBuffer[i].stats.age;
+        }
+
+        Stats.RecordSurvival(count);
+        Stats.RecordMeanAge(ageSum / count);
     }
 
     public Vector3 GetSpawnPosition(int quadrant = 0)
@@ -675,16 +695,20 @@ public class EcosystemManager : Singleton<EcosystemManager>
 
         Telemetry.Instance.OnEpisodeEnd();
 
-        foreach (var animal in FindObjectsByType<AgentAnimalBase>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID))
-            Destroy(animal.gameObject);
+        // Cache to avoid modifying collection during iteration
+        var allAnimals = new List<AgentAnimalBase>(FindObjectsByType<AgentAnimalBase>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID));
+        foreach (var animal in allAnimals)
+            Destroy(animal.gameObject); // Triggers OnDestroy later
 
-        foreach (var consumable in FindObjectsByType<SustainedConsumable>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID))
+        var allConsumables = new List<SustainedConsumable>(FindObjectsByType<SustainedConsumable>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID));
+        foreach (var consumable in allConsumables)
             Destroy(consumable.gameObject);
 
-        SpawnerManager.Instance.Reinitialise();
-        liveAgents.Clear();
+        liveAgents.Clear(); // explicit clear, no need to re-unregister on destroy
 
+        SpawnerManager.Instance.Reinitialise();
         Telemetry.Instance.OnEpisodeBegin();
+
         isResettingEnvironment = false;
     }
 
@@ -743,6 +767,11 @@ public class ResourceBar : MonoBehaviour
 
     public void SetConsumable(SustainedConsumable consumable) => this.consumable = consumable;
 
+    private void Start()
+    {
+        if (!EcosystemManager.Instance.showValues) gameObject.SetActive(false);
+    }
+
     private void Update()
     {
         if (resourceBar && resourceBar.fillAmount != consumable.remainingValue)
@@ -775,6 +804,8 @@ public class SpawnerManager : Singleton<SpawnerManager>
 
     public bool spawnPrey = true;
     public bool spawnPredators = false;
+
+    public bool spawnInQuadrants = true;
 
     [Header("Respawn Settings")]
     public bool SpawnInIntervals = true;
@@ -909,6 +940,7 @@ public class SpawnerManager : Singleton<SpawnerManager>
     static readonly Collider[] probeHits = new Collider[16];   // tweak size as needed
     Vector3 GetValidSpawnPosition(GameObject prefab, int quadrant = 0)
     {
+        if (!spawnInQuadrants) quadrant = 0;
         float radius = checkRadius * Mathf.Max(prefab.transform.localScale.x,
                                                prefab.transform.localScale.y,
                                                prefab.transform.localScale.z);
@@ -1294,10 +1326,18 @@ public class Telemetry : Singleton<Telemetry>
     protected override void Awake()
     {
         base.Awake();
-        csvPath = Path.Combine(Application.persistentDataPath,
-                               $"ecosim_{System.DateTime.Now:yyyyMMdd_HHmmss}.csv");
+
+        // Create folder if it doesn't exist
+        string telemetryDir = Path.Combine(Application.dataPath, "Telemetry");
+        if (!Directory.Exists(telemetryDir))
+            Directory.CreateDirectory(telemetryDir);
+
+        csvPath = Path.Combine(telemetryDir, $"ecosim_{System.DateTime.Now:yyyyMMdd_HHmmss}.csv");
+
         writer = new StreamWriter(csvPath);
         writer.WriteLine("episode,startTime,endTime,aliveTime,spawned,dead,rewardSum");
+
+        Debug.Log($"[Telemetry] Logging to: {csvPath}");
     }
 
     /* ---------- environment level ---------- */

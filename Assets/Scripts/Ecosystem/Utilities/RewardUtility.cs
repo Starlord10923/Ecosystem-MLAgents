@@ -7,6 +7,7 @@ public static class RewardUtility
     public static void AddNutritionReward(Agent agent, float amount)
     {
         float scaled = 0.2f * amount / 0.1f;
+        EcosystemManager.Instance.totalRewardGiven += scaled;
         agent.AddReward(scaled);
     }
 
@@ -14,6 +15,7 @@ public static class RewardUtility
     public static void AddWaterReward(Agent agent, float amount)
     {
         float scaled = 0.2f * amount / 0.1f;
+        EcosystemManager.Instance.totalRewardGiven += scaled;
         agent.AddReward(scaled);
     }
 
@@ -21,17 +23,22 @@ public static class RewardUtility
     public static void AddPredationReward(Agent agent, float amount)
     {
         float scaled = 5.0f * amount / 0.6f;
+        EcosystemManager.Instance.totalRewardGiven += scaled;
         agent.AddReward(scaled);
     }
 
     /// <summary>Reward for Mating. Baseline: +0.2 for delta.</summary>
-    public static void AddMatingReward(Agent agent, float amount = 0.3f)
+    public static void AddMatingReward(Agent agent, float amount = 0.15f)
     {
+        EcosystemManager.Instance.totalRewardGiven += amount;
+        EcosystemManager.Instance.partialMatingReward += amount;
         agent.AddReward(amount);
     }
     /// <summary>Reward for Mating. Baseline: +5 for success.</summary>
     public static void AddMatingSuccessReward(Agent agent, float amount = 5f)
     {
+        EcosystemManager.Instance.totalRewardGiven += amount;
+        EcosystemManager.Instance.totalMating++;
         agent.AddReward(amount);
     }
 
@@ -39,26 +46,23 @@ public static class RewardUtility
     public static void AddDecayPenalty(Agent agent, float hunger, float thirst)
     {
         float penalty = ComputePenalty(hunger) + ComputePenalty(thirst);
-        penalty = Mathf.Clamp(penalty, -0.1f, 0f);        // ✱ stabilises PPO
-        agent.AddReward(penalty * Time.fixedDeltaTime);
+        penalty = Mathf.Clamp(penalty, -0.1f, 0f);
+        float scaledPenalty = penalty * Time.fixedDeltaTime;
+        EcosystemManager.Instance.totalPenaltyGiven += Mathf.Abs(scaledPenalty);
+        agent.AddReward(scaledPenalty);
     }
-    
-    /// <summary>Flat death penalty. Called once on death.</summary>
+
     public static void AddDeathPenalty(Agent agent)
     {
+        EcosystemManager.Instance.totalPenaltyGiven += 1f;
         agent.AddReward(-1f);
     }
 
     /// <summary>Flat death penalty. Called once on death.</summary>
     public static void AddWallHitPenalty(Agent agent)
     {
+        EcosystemManager.Instance.totalPenaltyGiven += 0.5f;
         agent.AddReward(-0.5f);
-    }
-
-    /// <summary>Custom reward value for debugging or sparse events.</summary>
-    public static void AddCustom(Agent agent, float value)
-    {
-        agent.AddReward(value);
     }
 
     private static float ComputePenalty(float value)

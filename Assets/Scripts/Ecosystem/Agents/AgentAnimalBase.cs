@@ -164,27 +164,33 @@ public abstract class AgentAnimalBase : AgentBase
 
     protected void Eat(float amt, SustainedConsumable target)
     {
-        stats.Eat(amt);
-        RewardUtility.AddNutritionReward(this, amt);
-        target.Consume(amt);
-        animalBar.UpdateFromStats();
+        if (target.Consume(amt) > 0)
+        {
+            stats.Eat(amt);
+            RewardUtility.AddNutritionReward(this, amt);
+            animalBar.UpdateFromStats();
+        }
     }
 
     protected void EatAnimal(float amt, SustainedConsumable target, PreyAgent prey)
     {
-        prey.stats.TakeDamage(amt);
-        stats.Eat(amt);
-        RewardUtility.AddPredationReward(this, amt);
-        target.Consume(amt);
-        animalBar.UpdateFromStats();
+        if (target.Consume(amt) > 0)
+        {
+            prey.stats.TakeDamage(amt);
+            stats.Eat(amt);
+            RewardUtility.AddPredationReward(this, amt);
+            animalBar.UpdateFromStats();
+        }
     }
 
     protected void Drink(float amt, SustainedConsumable target)
     {
-        stats.Drink(amt);
-        RewardUtility.AddWaterReward(this, amt);
-        target.Consume(amt);
-        animalBar.UpdateFromStats();
+        if (target.Consume(amt) > 0)
+        {
+            stats.Drink(amt);
+            RewardUtility.AddWaterReward(this, amt);
+            animalBar.UpdateFromStats();
+        }
     }
 
     public override void UpdateSize()
