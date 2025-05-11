@@ -12,6 +12,7 @@ public abstract class AgentAnimalBase : AgentBase
 
     protected virtual void OnTriggerEnter(Collider other)
     {
+        // Debug.Log("Triggered : " + other.name);
         if (other.CompareTag("Wall"))
             RewardUtility.AddWallHitPenalty(this);
 
@@ -58,7 +59,7 @@ public abstract class AgentAnimalBase : AgentBase
             }
 
             float consumed = Mathf.Min(target.valuePerTick, target.remainingValue);
-            if (consumed <= 0f)
+            if (target.remainingValue <= 0f)
             {
                 StopCurrentConsumption();
                 yield break;

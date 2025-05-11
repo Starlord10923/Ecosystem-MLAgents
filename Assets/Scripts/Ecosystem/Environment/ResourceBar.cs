@@ -9,6 +9,11 @@ public class ResourceBar : MonoBehaviour
 
     public void SetConsumable(SustainedConsumable consumable) => this.consumable = consumable;
 
+    private void Start()
+    {
+        if (!EcosystemManager.Instance.showValues) gameObject.SetActive(false);
+    }
+
     private void Update()
     {
         if (resourceBar && resourceBar.fillAmount != consumable.remainingValue)

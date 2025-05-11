@@ -17,6 +17,11 @@ public class AnimalBar : MonoBehaviour
 
     public void SetStats(AgentStats newStats) => stats = newStats;
 
+    private void Start()
+    {
+        if (!EcosystemManager.Instance.showValues) gameObject.SetActive(false);
+    }
+
     private void Update()
     {
         if (stats == null) return;

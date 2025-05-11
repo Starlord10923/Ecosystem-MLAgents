@@ -19,15 +19,6 @@ public class AgentBase : Agent
         EcosystemManager.Instance.Register(this);
     }
 
-    protected override void OnDisable()
-    {
-        base.OnDisable();
-        if (!Application.isPlaying || EcosystemManager.Instance == null)
-            return;
-
-        EcosystemManager.Instance.Unregister(this);
-    }
-
     private void OnDestroy()
     {
         if (!Application.isPlaying || EcosystemManager.Instance == null)
@@ -81,19 +72,20 @@ public class AgentBase : Agent
 
         RewardUtility.AddDecayPenalty(this, stats.hunger, stats.thirst);
 
-        Vector3 moveDir = transform.TransformDirection(new Vector3(currentMove.x, 0, currentMove.y));
+        // Interpret currentMove.y as forward/backward
+        Vector3 moveDir = transform.forward * currentMove.y;
         Vector3 desiredXZ = (1f - brake) * maxSpeed * moveDir.normalized;
         Vector3 prevVel = rb.velocity;
 
-        rb.velocity = new Vector3(desiredXZ.x, rb.velocity.y, desiredXZ.z); // ← keep vertical component
-        CustomLogger.Log($"MoveDir: {moveDir}, Brake: {brake}, MaxSpeed: {maxSpeed}, Velocity: {rb.velocity}, PreviousVelocity: {prevVel}");
-        if (moveDir != Vector3.zero)
-        {
-            Quaternion targetRot = Quaternion.LookRotation(moveDir);
-            float turnSpeed = 120f; // degrees per second — adjust to taste
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, turnSpeed * Time.fixedDeltaTime);
-        }
+        rb.velocity = new Vector3(desiredXZ.x, rb.velocity.y, desiredXZ.z);
 
+        CustomLogger.Log($"MoveDir: {moveDir}, Brake: {brake}, MaxSpeed: {maxSpeed}, Velocity: {rb.velocity}, PreviousVelocity: {prevVel}");
+        // Rotate based on currentMove.x (A/D keys)
+        if (Mathf.Abs(currentMove.x) > 0.01f)
+        {
+            float turnSpeed = 120f; // degrees per second
+            transform.Rotate(Vector3.up, currentMove.x * turnSpeed * Time.fixedDeltaTime);
+        }
 
         UpdateSize();
     }

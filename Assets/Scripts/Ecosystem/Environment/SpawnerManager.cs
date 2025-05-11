@@ -21,6 +21,8 @@ public class SpawnerManager : Singleton<SpawnerManager>
     public bool spawnPrey = true;
     public bool spawnPredators = false;
 
+    public bool spawnInQuadrants = true;
+
     [Header("Respawn Settings")]
     public bool SpawnInIntervals = true;
     public float foodSpawnInterval = 10f;
@@ -154,6 +156,7 @@ public class SpawnerManager : Singleton<SpawnerManager>
     static readonly Collider[] probeHits = new Collider[16];   // tweak size as needed
     Vector3 GetValidSpawnPosition(GameObject prefab, int quadrant = 0)
     {
+        if (!spawnInQuadrants) quadrant = 0;
         float radius = checkRadius * Mathf.Max(prefab.transform.localScale.x,
                                                prefab.transform.localScale.y,
                                                prefab.transform.localScale.z);

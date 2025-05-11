@@ -5,7 +5,8 @@ public class EcosystemManager : Singleton<EcosystemManager>
 {
     public GameObject Environment;
     public Vector2 bounds = new(20, 20);
-    public bool UseHeuristicControl = true;  // Toggle globally in Inspector or via UI
+    public bool UseHeuristicControl = false;  // Toggle globally in Inspector or via UI
+    public bool showValues = false;
 
     /* ─── Active-agent tracking ─── */
     private readonly HashSet<AgentBase> liveAgents = new();
@@ -89,16 +90,20 @@ public class EcosystemManager : Singleton<EcosystemManager>
 
         Telemetry.Instance.OnEpisodeEnd();
 
-        foreach (var animal in FindObjectsByType<AgentAnimalBase>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID))
-            Destroy(animal.gameObject);
+        // Cache to avoid modifying collection during iteration
+        var allAnimals = new List<AgentAnimalBase>(FindObjectsByType<AgentAnimalBase>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID));
+        foreach (var animal in allAnimals)
+            Destroy(animal.gameObject); // Triggers OnDestroy later
 
-        foreach (var consumable in FindObjectsByType<SustainedConsumable>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID))
+        var allConsumables = new List<SustainedConsumable>(FindObjectsByType<SustainedConsumable>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID));
+        foreach (var consumable in allConsumables)
             Destroy(consumable.gameObject);
 
-        SpawnerManager.Instance.Reinitialise();
-        liveAgents.Clear();
+        liveAgents.Clear(); // explicit clear, no need to re-unregister on destroy
 
+        SpawnerManager.Instance.Reinitialise();
         Telemetry.Instance.OnEpisodeBegin();
+
         isResettingEnvironment = false;
     }
 

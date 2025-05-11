@@ -1,0 +1,47 @@
+{
+    "name": "root",
+    "metadata": {
+        "timer_format_version": "0.1.0",
+        "start_time_seconds": "1746994428",
+        "python_version": "3.9.13 (main, Oct 13 2022, 21:23:06) [MSC v.1916 64 bit (AMD64)]",
+        "command_line_arguments": "C:\\Users\\heros\\Anaconda3\\envs\\UnityML\\Scripts\\mlagents-learn results/Prey001/configuration.yaml --run-id=Prey001 --force",
+        "mlagents_version": "0.30.0",
+        "mlagents_envs_version": "0.30.0",
+        "communication_protocol_version": "1.5.0",
+        "pytorch_version": "2.6.0+cpu",
+        "numpy_version": "1.21.2",
+        "end_time_seconds": "1746994457"
+    },
+    "total": 29.172745100000004,
+    "count": 1,
+    "self": 0.008869700000001757,
+    "children": {
+        "run_training.setup": {
+            "total": 0.3209602999999994,
+            "count": 1,
+            "self": 0.3209602999999994
+        },
+        "TrainerController.start_learning": {
+            "total": 28.842915100000003,
+            "count": 1,
+            "self": 0.000666999999989315,
+            "children": {
+                "TrainerController._reset_env": {
+                    "total": 28.842227800000003,
+                    "count": 1,
+                    "self": 28.842227800000003
+                },
+                "trainer_threads": {
+                    "total": 1.6000000044869012e-06,
+                    "count": 1,
+                    "self": 1.6000000044869012e-06
+                },
+                "TrainerController._save_models": {
+                    "total": 1.87000000053672e-05,
+                    "count": 1,
+                    "self": 1.87000000053672e-05
+                }
+            }
+        }
+    }
+}

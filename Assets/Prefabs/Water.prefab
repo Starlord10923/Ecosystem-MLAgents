@@ -461,7 +461,7 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 122
+  m_Constraints: 126
   m_CollisionDetection: 1
 --- !u!114 &3846330615089584480
 MonoBehaviour:
@@ -477,9 +477,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   consumableType: 1
   resourceBar: {fileID: 7136082383473758391}
-  totalValue: 3
+  totalValue: 1.2
   remainingValue: 0
   tickInterval: 0.2
-  duration: 1
+  duration: 1.5
   valuePerTick: 0
   totalTicks: 0

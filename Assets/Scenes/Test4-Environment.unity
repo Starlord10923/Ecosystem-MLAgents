@@ -294,13 +294,14 @@ MonoBehaviour:
   foodPrefabs:
   - {fileID: 6012799385712412350, guid: 944a56aeb747e7a41b3077592a37b153, type: 3}
   waterPrefab: {fileID: 3880577161776740337, guid: 70ac7b89ba9d03943be85d845a7e1e47, type: 3}
-  initialPrey: 2
-  initialPredators: 0
-  initialFood: 0
-  initialWater: 0
+  initialPrey: 20
+  initialPredators: 5
+  initialFood: 20
+  initialWater: 10
   spawnPrey: 1
   spawnPredators: 0
-  SpawnInIntervals: 0
+  spawnInQuadrants: 0
+  SpawnInIntervals: 1
   foodSpawnInterval: 10
   foodSpawnAmount: 5
   waterSpawnInterval: 12
@@ -519,8 +520,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Environment: {fileID: 2769830148051336634}
-  bounds: {x: 90, y: 90}
-  UseHeuristicControl: 1
+  bounds: {x: 45, y: 45}
+  UseHeuristicControl: 0
 --- !u!4 &1793235278
 Transform:
   m_ObjectHideFlags: 0
@@ -978,7 +979,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 20, y: 20, z: 20}
+  m_LocalScale: {x: 10, y: 10, z: 10}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 5152599642012509928}
