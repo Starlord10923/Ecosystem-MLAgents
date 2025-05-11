@@ -76,8 +76,8 @@ public class SustainedConsumable : MonoBehaviour
         float consumed = Mathf.Min(amount, remainingValue);
         if (consumed <= 0f) return 0f;
 
-        remainingValue = Mathf.Max(0f, consumed);
-
+        remainingValue -= consumed;
+        remainingValue = Mathf.Max(0f, remainingValue);
         return consumed;
     }
 }

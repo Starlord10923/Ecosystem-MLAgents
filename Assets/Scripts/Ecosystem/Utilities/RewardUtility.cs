@@ -1,4 +1,5 @@
 using Unity.MLAgents;
+using UnityEngine;
 
 public static class RewardUtility
 {
@@ -16,10 +17,10 @@ public static class RewardUtility
         agent.AddReward(scaled);
     }
 
-    /// <summary>Reward for predator consuming prey. Baseline: +1.0 for 0.6 units.</summary>
+    /// <summary>Reward for predator consuming prey. Baseline: +5.0 for 0.6 units.</summary>
     public static void AddPredationReward(Agent agent, float amount)
     {
-        float scaled = 1.0f * amount / 0.6f;
+        float scaled = 5.0f * amount / 0.6f;
         agent.AddReward(scaled);
     }
 
@@ -37,18 +38,21 @@ public static class RewardUtility
     /// <summary>Negative reward for being hungry or thirsty each frame. Penalty scales with deficiency.</summary>
     public static void AddDecayPenalty(Agent agent, float hunger, float thirst)
     {
-        float penalty = 0f;
-
-        penalty += ComputePenalty(hunger);
-        penalty += ComputePenalty(thirst);
-
-        agent.AddReward(penalty * UnityEngine.Time.fixedDeltaTime);
+        float penalty = ComputePenalty(hunger) + ComputePenalty(thirst);
+        penalty = Mathf.Clamp(penalty, -0.1f, 0f);        // ✱ stabilises PPO
+        agent.AddReward(penalty * Time.fixedDeltaTime);
     }
-
+    
     /// <summary>Flat death penalty. Called once on death.</summary>
     public static void AddDeathPenalty(Agent agent)
     {
         agent.AddReward(-1f);
+    }
+
+    /// <summary>Flat death penalty. Called once on death.</summary>
+    public static void AddWallHitPenalty(Agent agent)
+    {
+        agent.AddReward(-0.5f);
     }
 
     /// <summary>Custom reward value for debugging or sparse events.</summary>

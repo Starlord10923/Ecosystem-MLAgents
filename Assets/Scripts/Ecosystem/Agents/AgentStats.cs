@@ -7,9 +7,9 @@ public class AgentStats
     public float thirst = 1f;
     public float health = 1f;
 
-    public float speed;
-    public float sightRange;
-    public float maxSize;
+    public float speed = 1f;
+    public float sightRange = 1f;
+    public float maxSize = 1f;
 
     public float hungerDecayRate = 0.005f;
     public float thirstDecayRate = 0.0075f;
@@ -23,7 +23,10 @@ public class AgentStats
     public float hungerPauseUntil = 0f;
     public float thirstPauseUntil = 0f;
 
-    public float CurrentSize => Mathf.Lerp(1f, maxSize, Mathf.Clamp01(age / growthTime));
+    public float CurrentSize => growthTime <= 0f
+        ? maxSize
+        : Mathf.Lerp(1f, maxSize, Mathf.Clamp01(age / growthTime));
+
     public bool IsAdult => age >= growthTime;
     public bool IsAlive => hunger > 0f && thirst > 0f && health > 0f && age < MaxLifetime;
 
@@ -41,24 +44,16 @@ public class AgentStats
         age += dt;
 
         if (Time.time >= hungerPauseUntil)
-        {
-            DecreaseHunger(hungerDecayRate * dt);
-        }
 
+            DecreaseHunger(hungerDecayRate * dt);
         if (Time.time >= thirstPauseUntil)
-        {
             DecreaseThirst(thirstDecayRate * dt);
-        }
 
         // Health logic
         if (hunger < 0.3f || thirst < 0.3f)
-        {
             TakeDamage(healthDecayRate * dt);
-        }
-        else if (hunger >= 0.5f || thirst >= 0.5f)
-        {
+        else if (hunger >= 0.5f && thirst >= 0.5f)
             IncreaseHealth(healthRegenRate * dt);
-        }
         // else do nothing (health stays same)
     }
 

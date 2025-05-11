@@ -34,6 +34,17 @@ public class PreyAgent : AgentAnimalBase
         brake = Mathf.Clamp01(actions.DiscreteActions[0]);
     }
 
+    public override void Heuristic(in ActionBuffers actionsOut)
+    {
+        var continuous = actionsOut.ContinuousActions;
+        var discrete = actionsOut.DiscreteActions;
+
+        continuous[0] = Input.GetAxis("Horizontal");
+        continuous[1] = Input.GetAxis("Vertical");
+
+        discrete[0] = Input.GetKey(KeyCode.Space) ? 1 : 0;
+    }
+
     public override void UpdateSize()
     {
         if (transform.localScale.y != stats.CurrentSize)

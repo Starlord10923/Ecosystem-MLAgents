@@ -12,6 +12,9 @@ public abstract class AgentAnimalBase : AgentBase
 
     protected virtual void OnTriggerEnter(Collider other)
     {
+        if (other.CompareTag("Wall"))
+            RewardUtility.AddWallHitPenalty(this);
+
         CheckForConsumption(other);
         CheckForMating(other);
     }
@@ -19,31 +22,18 @@ public abstract class AgentAnimalBase : AgentBase
     protected virtual void OnTriggerExit(Collider other)
     {
         if (currentTarget == other)
-        {
             StopCurrentConsumption();
-        }
     }
 
     public void CheckForConsumption(Collider other)
     {
-        if (currentConsumption != null || !other.TryGetComponent<SustainedConsumable>(out var target))
+        if (currentConsumption.IsRunning || !other.TryGetComponent<SustainedConsumable>(out var target))
+            return;
+        if (this is PreyAgent && target.consumableType == SustainedConsumable.Type.Prey)
             return;
 
         currentTarget = other;
         currentConsumption = Timing.RunCoroutine(ConsumeOverTime(target, other));
-    }
-
-    public void CheckForMating(Collider other)
-    {
-        if (!stats.CanMate || IsMating) return;
-
-        if (other.TryGetComponent<AgentAnimalBase>(out var partner) && partner != this)
-        {
-            if (partner.stats.CanMate && !partner.IsMating && partner.GetType() == GetType())
-            {
-                matingCoroutine = Timing.RunCoroutine(HandleMating(partner));
-            }
-        }
     }
 
     private void StopCurrentConsumption()
@@ -123,17 +113,32 @@ public abstract class AgentAnimalBase : AgentBase
         StopCurrentConsumption();
     }
 
+    public void CheckForMating(Collider other)
+    {
+        if (!stats.CanMate || IsMating) return;
+
+        if (other.TryGetComponent<AgentAnimalBase>(out var partner) &&
+            partner != this &&
+            partner.stats.CanMate &&
+            !partner.IsMating &&
+            partner.GetType() == GetType())
+        {
+            matingCoroutine = Timing.RunCoroutine(HandleMating(partner));
+        }
+    }
+
     private IEnumerator<float> HandleMating(AgentAnimalBase partner)
     {
-        float currentMatingTime = 0f;
-        while (currentMatingTime < 2f)
+        float matingTime = 0f;
+        const float tick = 0.2f;
+        while (matingTime < 2f)          // 2 s total
         {
-            yield return Timing.WaitForSeconds(2f);
+            yield return Timing.WaitForSeconds(tick);
             RewardUtility.AddMatingReward(this);
-            currentMatingTime += 0.2f;
+            matingTime += tick;
         }
 
-        this.stats.Mate();
+        stats.Mate();
         partner.stats.Mate();
         animalBar.UpdateFromStats();
         partner.animalBar.UpdateFromStats();
@@ -141,7 +146,6 @@ public abstract class AgentAnimalBase : AgentBase
         // Create inherited child
         AgentStats childStats = GeneticUtility.Inherit(stats, partner.stats);
         Vector3 spawnPos = (transform.position + partner.transform.position) / 2f;
-
         EcosystemManager.Instance.SpawnAnimal(this, childStats, spawnPos);
 
         RewardUtility.AddMatingSuccessReward(this);
@@ -151,39 +155,40 @@ public abstract class AgentAnimalBase : AgentBase
     {
         RewardUtility.AddDeathPenalty(this);
         base.Die();
+
         StopCurrentConsumption();
+        if (matingCoroutine.IsRunning)
+            Timing.KillCoroutines(matingCoroutine);
     }
 
-protected void Eat(float amt, SustainedConsumable target)
-{
-    stats.Eat(amt);
-    RewardUtility.AddNutritionReward(this, amt);
-    target.Consume(amt);
-    animalBar.UpdateFromStats();
-}
+    protected void Eat(float amt, SustainedConsumable target)
+    {
+        stats.Eat(amt);
+        RewardUtility.AddNutritionReward(this, amt);
+        target.Consume(amt);
+        animalBar.UpdateFromStats();
+    }
 
-protected void EatAnimal(float amt, SustainedConsumable target, PreyAgent prey)
-{
-    prey.stats.TakeDamage(amt);
-    stats.Eat(amt);
-    RewardUtility.AddPredationReward(this, amt);
-    target.Consume(amt);
-    animalBar.UpdateFromStats();
-}
+    protected void EatAnimal(float amt, SustainedConsumable target, PreyAgent prey)
+    {
+        prey.stats.TakeDamage(amt);
+        stats.Eat(amt);
+        RewardUtility.AddPredationReward(this, amt);
+        target.Consume(amt);
+        animalBar.UpdateFromStats();
+    }
 
-protected void Drink(float amt, SustainedConsumable target)
-{
-    stats.Drink(amt);
-    RewardUtility.AddWaterReward(this, amt);
-    target.Consume(amt);
-    animalBar.UpdateFromStats();
-}
+    protected void Drink(float amt, SustainedConsumable target)
+    {
+        stats.Drink(amt);
+        RewardUtility.AddWaterReward(this, amt);
+        target.Consume(amt);
+        animalBar.UpdateFromStats();
+    }
 
     public override void UpdateSize()
     {
-        if (transform.localScale.y != stats.CurrentSize)
-        {
+        if (!Mathf.Approximately(transform.localScale.y, stats.CurrentSize))
             transform.localScale = Vector3.one * stats.CurrentSize;
-        }
     }
 }

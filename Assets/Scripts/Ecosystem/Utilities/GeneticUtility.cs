@@ -10,10 +10,10 @@ public static class GeneticUtility
 
     public static AgentStats Inherit(AgentStats p1, AgentStats p2)
     {
+        float sRange = Mathf.Clamp(Blend(p1.sightRange, p2.sightRange), 0.5f, 3f);
         return new AgentStats(
             Blend(p1.speed, p2.speed),
             Blend(p1.maxSize, p2.maxSize),
-            Blend(p1.sightRange, p2.sightRange)
-        );
+            sRange);
     }
 }

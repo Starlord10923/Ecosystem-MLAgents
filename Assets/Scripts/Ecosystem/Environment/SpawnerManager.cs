@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using MEC;
 using UnityEngine;
 
-public class SpawnerManager : MonoBehaviour
+public class SpawnerManager : Singleton<SpawnerManager>
 {
     public enum SpawnType { Food, Water, Prey, Predator }
 
@@ -31,14 +31,18 @@ public class SpawnerManager : MonoBehaviour
     public int waterSpawnAmount = 2;
 
     [Header("Collision Avoidance")]
-    public float checkRadius = 1.5f;
+    public float checkRadius = 1.15f;
     public int maxSpawnAttempts = 10;
     public LayerMask obstacleMask;
+    public TagMask blockingTags;
 
     GameObject PreyParent;
     GameObject PredatorParent;
     GameObject FoodParent;
     GameObject WaterParent;
+
+    CoroutineHandle foodSpawnHandle;
+    CoroutineHandle waterSpawnHandle;
 
     void Start()
     {
@@ -55,8 +59,11 @@ public class SpawnerManager : MonoBehaviour
         Spawn(foodPrefabs, initialFood, SpawnType.Food);
         Spawn(waterPrefab, initialWater, SpawnType.Water);
 
-        StartCoroutine(SpawnFoodRoutine());
-        StartCoroutine(SpawnWaterRoutine());
+        foodSpawnHandle = Timing.RunCoroutine(SpawnFoodRoutine());
+        waterSpawnHandle = Timing.RunCoroutine(SpawnWaterRoutine());
+
+        if (Telemetry.Instance && Telemetry.Instance.EpisodeIndex == 0)
+            Telemetry.Instance.OnEpisodeBegin();              // ✱ first launch
     }
 
     void Spawn(List<GameObject> prefabs, int count, SpawnType type)
@@ -71,9 +78,9 @@ public class SpawnerManager : MonoBehaviour
 
         for (int i = 0; i < count; i++)
         {
-            Vector3 pos = GetValidSpawnPosition();
-            if (pos == Vector3.positiveInfinity) continue;
             int index = Random.Range(0, prefabs.Count);
+            Vector3 pos = GetValidSpawnPosition(prefabs[index]);
+            if (pos == Vector3.positiveInfinity) continue;
             Instantiate(prefabs[index], pos, Quaternion.identity, parent);
         }
     }
@@ -90,9 +97,10 @@ public class SpawnerManager : MonoBehaviour
 
         for (int i = 0; i < count; i++)
         {
-            Vector3 pos = GetValidSpawnPosition();
+            Vector3 pos = GetValidSpawnPosition(prefab);
             if (pos == Vector3.positiveInfinity) continue;
-            Instantiate(prefab, pos, Quaternion.identity, parent);
+            Quaternion randomYRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+            Instantiate(prefab, pos, randomYRotation, parent);
         }
     }
 
@@ -114,6 +122,17 @@ public class SpawnerManager : MonoBehaviour
         }
     }
 
+    public void Reinitialise()
+    {
+        Destroy(PreyParent);
+        Destroy(PredatorParent);
+        Destroy(FoodParent);
+        Destroy(WaterParent);
+        Timing.KillCoroutines(foodSpawnHandle);
+        Timing.KillCoroutines(waterSpawnHandle);
+        Start();               // fresh start
+    }
+
     Transform GetParent(SpawnType type)
     {
         return type switch
@@ -126,19 +145,39 @@ public class SpawnerManager : MonoBehaviour
         };
     }
 
-    private Vector3 GetValidSpawnPosition()
+    static readonly Collider[] probeHits = new Collider[16];   // tweak size as needed
+    private Vector3 GetValidSpawnPosition(GameObject prefab)
     {
+        float radius = checkRadius * Mathf.Max(prefab.transform.localScale.x, prefab.transform.localScale.y, prefab.transform.localScale.z);
+
         for (int attempt = 0; attempt < maxSpawnAttempts; attempt++)
         {
-            float x = Random.Range(-spawnRadius, spawnRadius);
-            float z = Random.Range(-spawnRadius, spawnRadius);
-            Vector3 pos = new Vector3(x, 1f, z);
+            Vector3 rnd = EcosystemManager.Instance.GetSpawnPosition();
+            Vector3 pos = new Vector3(rnd.x, prefab.transform.localScale.y, rnd.z);
 
-            if (!Physics.CheckSphere(pos, checkRadius, obstacleMask))
+            int hitCount = Physics.OverlapSphereNonAlloc(
+                pos, radius, probeHits, obstacleMask, QueryTriggerInteraction.Collide);
+
+            bool blocked = false;
+
+            for (int i = 0; i < hitCount; i++)
+            {
+                Collider c = probeHits[i];
+                if (!c || string.IsNullOrEmpty(c.tag)) continue;
+
+                if (blockingTags.Contains(c.tag))
+                {
+                    blocked = true;
+                    break;
+                }
+            }
+
+            if (!blocked)
                 return pos;
         }
 
-        Debug.LogWarning("Could not find a valid spawn position.");
-        return Vector3.positiveInfinity; // Signal failure
+        Debug.LogWarning($"[SpawnerManager] Failed to find valid position for {prefab.name} after {maxSpawnAttempts} attempts.");
+        return Vector3.positiveInfinity;
     }
+
 }
