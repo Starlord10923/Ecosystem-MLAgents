@@ -130,7 +130,7 @@ public class EcosystemManager : Singleton<EcosystemManager>
         isResettingEnvironment = true;
         totalEpisodes += 1;
 
-        Telemetry.Instance.OnEpisodeEnd();
+        Telemetry.Instance.OnEpisodeEnd(this);
 
         // Cache to avoid modifying collection during iteration
         var allAnimals = new List<AgentAnimalBase>(FindObjectsByType<AgentAnimalBase>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID));

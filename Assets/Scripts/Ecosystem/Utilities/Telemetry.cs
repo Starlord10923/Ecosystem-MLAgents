@@ -1,4 +1,3 @@
-// Utilities/Telemetry.cs
 using System.IO;
 using Unity.MLAgents;
 using UnityEngine;
@@ -20,7 +19,11 @@ public class Telemetry : Singleton<Telemetry>
         csvPath = Path.Combine(telemetryDir, $"ecosim_{System.DateTime.Now:yyyyMMdd_HHmmss}.csv");
 
         writer = new StreamWriter(csvPath);
-        writer.WriteLine("episode,startTime,endTime,aliveTime,spawned,dead,rewardSum");
+        writer.WriteLine("episode,startTime,endTime,aliveTime,spawned,dead,rewardSum," +
+                         "totalRewardGiven,totalPenaltyGiven,crowdingPenalty," +
+                         "totalPreySpawned,totalPredatorsSpawned,currentPreyCount,currentPredatorCount," +
+                         "foodConsumed,waterConsumed,totalMating,partialMatingReward," +
+                         "animalKilled,reachedLifeEnd,diedFromHunger,diedFromThirst");
 
         Debug.Log($"[Telemetry] Logging to: {csvPath}");
     }
@@ -42,14 +45,18 @@ public class Telemetry : Singleton<Telemetry>
 
     public void OnAgentSpawn() => spawned++;
     public void OnAgentDeath() => dead++;
-
     public void AddReward(float r) => rewardSum += r;
 
-    public void OnEpisodeEnd()
+    public void OnEpisodeEnd(EcosystemManager eco)
     {
         double end = Time.timeAsDouble;
+
         writer.WriteLine($"{EpisodeIndex},{episodeStart:F2},{end:F2},{end - episodeStart:F2}," +
-                         $"{spawned},{dead},{rewardSum:F3}");
+                         $"{spawned},{dead},{rewardSum:F3}," +
+                         $"{eco.totalRewardGiven:F3},{eco.totalPenaltyGiven:F3},{eco.crowdingPenalty:F3}," +
+                         $"{eco.totalPreySpawned},{eco.totalPredatorsSpawned},{eco.currentPreyCount},{eco.currentPredatorCount}," +
+                         $"{eco.foodConsumed},{eco.waterConsumed},{eco.totalMating},{eco.partialMatingReward:F3}," +
+                         $"{eco.animalKilled},{eco.reachedLifeEnd},{eco.diedFromHunger},{eco.diedFromThirst}");
         writer.Flush();
     }
 
