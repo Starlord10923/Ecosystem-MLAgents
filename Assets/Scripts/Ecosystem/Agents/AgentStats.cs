@@ -16,7 +16,7 @@ public class AgentStats
     public float healthDecayRate = 0.005f;
     public float healthRegenRate = 0.01f;
 
-    public float lifetime = 60f;
+    public float MaxLifetime = 60f;
     public float growthTime = 20f;
     public float age = 0f;
 
@@ -25,7 +25,7 @@ public class AgentStats
 
     public float CurrentSize => Mathf.Lerp(1f, maxSize, Mathf.Clamp01(age / growthTime));
     public bool IsAdult => age >= growthTime;
-    public bool IsAlive => hunger > 0f && thirst > 0f && health > 0f && age < lifetime;
+    public bool IsAlive => hunger > 0f && thirst > 0f && health > 0f && age < MaxLifetime;
 
     public AgentStats() { }
 
@@ -41,26 +41,25 @@ public class AgentStats
         age += dt;
 
         if (Time.time >= hungerPauseUntil)
-            hunger -= hungerDecayRate * dt;
+        {
+            DecreaseHunger(hungerDecayRate * dt);
+        }
 
         if (Time.time >= thirstPauseUntil)
-            thirst -= thirstDecayRate * dt;
-
-        hunger = Mathf.Clamp01(hunger);
-        thirst = Mathf.Clamp01(thirst);
+        {
+            DecreaseThirst(thirstDecayRate * dt);
+        }
 
         // Health logic
         if (hunger < 0.3f || thirst < 0.3f)
         {
-            health -= healthDecayRate * dt;
+            TakeDamage(healthDecayRate * dt);
         }
         else if (hunger >= 0.5f || thirst >= 0.5f)
         {
-            health += healthRegenRate * dt;
+            IncreaseHealth(healthRegenRate * dt);
         }
         // else do nothing (health stays same)
-
-        health = Mathf.Clamp01(health);
     }
 
 
@@ -81,5 +80,51 @@ public class AgentStats
         health = Mathf.Clamp01(health - amount);
     }
 
+    public void IncreaseHealth(float amount)
+    {
+        health += amount;
+                health = Mathf.Clamp01(health);
+    }
+
+    public void Mate()
+    {
+        DecreaseHunger(0.2f);
+        DecreaseThirst(0.2f);
+    }
+
+    public void DecreaseHunger(float value)
+    {
+        hunger -= value;
+        hunger = Mathf.Clamp01(hunger);
+    }
+
+    public void DecreaseThirst(float value)
+    {
+        thirst -= value;
+        thirst = Mathf.Clamp01(thirst);
+    }
+
     public bool CanMate => IsAdult && hunger >= 0.7f && thirst >= 0.7f;
+
+    public static AgentStats Clone(AgentStats source)
+    {
+        return new AgentStats
+        {
+            hunger = source.hunger,
+            thirst = source.thirst,
+            health = source.health,
+            speed = source.speed,
+            sightRange = source.sightRange,
+            maxSize = source.maxSize,
+            hungerDecayRate = source.hungerDecayRate,
+            thirstDecayRate = source.thirstDecayRate,
+            healthDecayRate = source.healthDecayRate,
+            healthRegenRate = source.healthRegenRate,
+            MaxLifetime = source.MaxLifetime,
+            growthTime = source.growthTime,
+            age = 0f, // newborn
+            hungerPauseUntil = 0f,
+            thirstPauseUntil = 0f
+        };
+    }
 }

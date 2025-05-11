@@ -9,7 +9,7 @@ public class AgentBase : Agent
     protected float brake;
     public AgentStats stats;
     public float maxSpeed;
-    [SerializeField] AnimalBar animalBar;
+    [SerializeField] protected AnimalBar animalBar;
 
     protected virtual void Awake()
     {
@@ -22,6 +22,7 @@ public class AgentBase : Agent
         stats = inherited ?? new AgentStats(Random.Range(2f, 4f), Random.Range(1.5f, 2.5f), Random.Range(8f, 12f));
         maxSpeed = stats.speed;
         transform.localScale = Vector3.one * stats.CurrentSize;
+        animalBar.SetStats(stats);
     }
 
     public virtual void FixedUpdate()
@@ -34,7 +35,7 @@ public class AgentBase : Agent
             return;
         }
 
-        RewardUtility.Instance.AddDecayPenalty(this, stats.hunger, stats.thirst);
+        RewardUtility.AddDecayPenalty(this, stats.hunger, stats.thirst);
 
         Vector3 moveDir = transform.TransformDirection(new Vector3(currentMove.x, 0, currentMove.y));
         Vector3 desiredVel = (1f - brake) * maxSpeed * moveDir.normalized;

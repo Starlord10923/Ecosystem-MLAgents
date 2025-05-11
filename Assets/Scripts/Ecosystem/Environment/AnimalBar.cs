@@ -10,31 +10,27 @@ public class AnimalBar : MonoBehaviour
     [SerializeField] private Image hungerBar;
     [SerializeField] private Image thirstBar;
     [SerializeField] private Image healthBar;
-    [SerializeField] private GameObject matingIcon;
+    [SerializeField] private Image matingIcon;
 
     [Header("Smoothing")]
     [Range(1f, 20f)] public float lerpSpeed = 10f;
 
-    private float hungerTarget, thirstTarget, healthTarget;
+    public void SetStats(AgentStats newStats) => stats = newStats;
 
     private void Update()
     {
         if (stats == null) return;
 
-        // Update target values
-        hungerTarget = Mathf.Clamp01(stats.hunger);
-        thirstTarget = Mathf.Clamp01(stats.thirst);
-        healthTarget = Mathf.Clamp01(stats.health);
+        if (hungerBar && hungerBar.fillAmount != stats.hunger) hungerBar.fillAmount = Mathf.Lerp(hungerBar.fillAmount, stats.hunger, Time.deltaTime * lerpSpeed);
+        if (thirstBar && thirstBar.fillAmount != stats.thirst) thirstBar.fillAmount = Mathf.Lerp(thirstBar.fillAmount, stats.thirst, Time.deltaTime * lerpSpeed);
+        if (healthBar && healthBar.fillAmount != stats.health) healthBar.fillAmount = Mathf.Lerp(healthBar.fillAmount, stats.health, Time.deltaTime * lerpSpeed);
 
-        // Smooth fill transitions
-        if (hungerBar) hungerBar.fillAmount = Mathf.Lerp(hungerBar.fillAmount, hungerTarget, Time.deltaTime * lerpSpeed);
-        if (thirstBar) thirstBar.fillAmount = Mathf.Lerp(thirstBar.fillAmount, thirstTarget, Time.deltaTime * lerpSpeed);
-        if (healthBar) healthBar.fillAmount = Mathf.Lerp(healthBar.fillAmount, healthTarget, Time.deltaTime * lerpSpeed);
-
-        // Show or hide mating icon
-        if (matingIcon != null)
-            matingIcon.SetActive(stats.CanMate);
+        Color mateColor = stats.CanMate ? Color.red : Color.white;
+        if (matingIcon && matingIcon.color != mateColor) matingIcon.color = mateColor;
     }
 
-    public void SetStats(AgentStats newStats) => stats = newStats;
+    public void UpdateFromStats()
+    {
+        return;
+    }
 }

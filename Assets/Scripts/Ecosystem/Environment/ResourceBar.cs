@@ -3,21 +3,18 @@ using UnityEngine.UI;
 
 public class ResourceBar : MonoBehaviour
 {
-    [SerializeField] private Image barImage;
+    public SustainedConsumable consumable;
+    [SerializeField] private Image resourceBar;
     [Range(1f, 20f)] public float lerpSpeed = 10f;
 
-    private float target = 1f;
+    public void SetConsumable(SustainedConsumable newConsumable) => consumable = newConsumable;
 
-    public void SetTargetFill(float value)
-    {
-        target = Mathf.Clamp01(value);
-    }
+    public float value;
 
     private void Update()
     {
-        if (Mathf.Abs(barImage.fillAmount - target) > 0.001f)
-        {
-            barImage.fillAmount = Mathf.Lerp(barImage.fillAmount, target, Time.deltaTime * lerpSpeed);
-        }
+        // if (resourceBar && resourceBar.fillAmount != consumable.remainingValue)
+        //     resourceBar.fillAmount = Mathf.Lerp(resourceBar.fillAmount, consumable.remainingValue, Time.deltaTime * lerpSpeed);
+        resourceBar.fillAmount = Mathf.Lerp(resourceBar.fillAmount, value, Time.deltaTime * lerpSpeed);
     }
 }

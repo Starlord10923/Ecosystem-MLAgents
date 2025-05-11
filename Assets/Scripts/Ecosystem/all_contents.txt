@@ -10,7 +10,24 @@ public abstract class AgentAnimalBase : AgentBase
     private CoroutineHandle currentConsumption;
     private Collider currentTarget = null;
 
+    private CoroutineHandle matingCoroutine;
+    private bool IsMating => matingCoroutine.IsRunning;
+
     protected virtual void OnTriggerEnter(Collider other)
+    {
+        CheckForConsumption(other);
+        CheckForMating(other);
+    }
+
+    protected virtual void OnTriggerExit(Collider other)
+    {
+        if (currentTarget == other)
+        {
+            StopCurrentConsumption();
+        }
+    }
+
+    public void CheckForConsumption(Collider other)
     {
         if (currentConsumption != null || !other.TryGetComponent<SustainedConsumable>(out var target))
             return;
@@ -19,11 +36,16 @@ public abstract class AgentAnimalBase : AgentBase
         currentConsumption = Timing.RunCoroutine(ConsumeOverTime(target, other));
     }
 
-    protected virtual void OnTriggerExit(Collider other)
+    public void CheckForMating(Collider other)
     {
-        if (currentTarget == other)
+        if (!stats.CanMate || IsMating) return;
+
+        if (other.TryGetComponent<AgentAnimalBase>(out var partner) && partner != this)
         {
-            StopCurrentConsumption();
+            if (partner.stats.CanMate && !partner.IsMating && partner.GetType() == GetType())
+            {
+                matingCoroutine = Timing.RunCoroutine(HandleMating(partner));
+            }
         }
     }
 
@@ -82,6 +104,11 @@ public abstract class AgentAnimalBase : AgentBase
                             yield break;
                         }
                     }
+                    else
+                    {
+                        StopCurrentConsumption();
+                        yield break;
+                    }
                     break;
             }
 
@@ -99,34 +126,61 @@ public abstract class AgentAnimalBase : AgentBase
         StopCurrentConsumption();
     }
 
+    private IEnumerator<float> HandleMating(AgentAnimalBase partner)
+    {
+        float currentMatingTime = 0f;
+        while (currentMatingTime < 2f)
+        {
+            yield return Timing.WaitForSeconds(2f);
+            RewardUtility.AddMatingReward(this);
+            currentMatingTime += 0.2f;
+        }
+
+        this.stats.Mate();
+        partner.stats.Mate();
+        animalBar.UpdateFromStats();
+        partner.animalBar.UpdateFromStats();
+
+        // Create inherited child
+        AgentStats childStats = GeneticUtility.Inherit(stats, partner.stats);
+        Vector3 spawnPos = (transform.position + partner.transform.position) / 2f;
+
+        EcosystemManager.Instance.SpawnAnimal(this, childStats, spawnPos);
+
+        RewardUtility.AddMatingSuccessReward(this);
+    }
+
     public override void Die()
     {
-        RewardUtility.Instance.AddDeathPenalty(this);
+        RewardUtility.AddDeathPenalty(this);
         base.Die();
         StopCurrentConsumption();
     }
 
-    protected void Eat(float amt, SustainedConsumable target)
-    {
-        stats.Eat(amt);
-        RewardUtility.Instance.AddNutritionReward(this, amt);
-        target.Consume(amt);
-    }
+protected void Eat(float amt, SustainedConsumable target)
+{
+    stats.Eat(amt);
+    RewardUtility.AddNutritionReward(this, amt);
+    target.Consume(amt);
+    animalBar.UpdateFromStats();
+}
 
-    protected void EatAnimal(float amt, SustainedConsumable target, PreyAgent prey)
-    {
-        prey.stats.TakeDamage(amt);
-        stats.Eat(amt);
-        RewardUtility.Instance.AddPredationReward(this, amt);
-        target.Consume(amt);
-    }
+protected void EatAnimal(float amt, SustainedConsumable target, PreyAgent prey)
+{
+    prey.stats.TakeDamage(amt);
+    stats.Eat(amt);
+    RewardUtility.AddPredationReward(this, amt);
+    target.Consume(amt);
+    animalBar.UpdateFromStats();
+}
 
-    protected void Drink(float amt, SustainedConsumable target)
-    {
-        stats.Drink(amt);
-        RewardUtility.Instance.AddWaterReward(this, amt);
-        target.Consume(amt);
-    }
+protected void Drink(float amt, SustainedConsumable target)
+{
+    stats.Drink(amt);
+    RewardUtility.AddWaterReward(this, amt);
+    target.Consume(amt);
+    animalBar.UpdateFromStats();
+}
 
     public override void UpdateSize()
     {
@@ -150,12 +204,13 @@ public class AgentBase : Agent
     protected float brake;
     public AgentStats stats;
     public float maxSpeed;
-    [SerializeField] AnimalBar animalBar;
+    [SerializeField] protected AnimalBar animalBar;
 
     protected virtual void Awake()
     {
         rb = GetComponent<Rigidbody>();
         animalBar = GetComponentInChildren<AnimalBar>();
+        animalBar.SetStats(stats);
     }
 
     public virtual void InitializeStats(AgentStats inherited = null)
@@ -175,7 +230,7 @@ public class AgentBase : Agent
             return;
         }
 
-        RewardUtility.Instance.AddDecayPenalty(this, stats.hunger, stats.thirst);
+        RewardUtility.AddDecayPenalty(this, stats.hunger, stats.thirst);
 
         Vector3 moveDir = transform.TransformDirection(new Vector3(currentMove.x, 0, currentMove.y));
         Vector3 desiredVel = (1f - brake) * maxSpeed * moveDir.normalized;
@@ -218,7 +273,7 @@ public class AgentStats
     public float healthDecayRate = 0.005f;
     public float healthRegenRate = 0.01f;
 
-    public float lifetime = 60f;
+    public float MaxLifetime = 60f;
     public float growthTime = 20f;
     public float age = 0f;
 
@@ -227,7 +282,7 @@ public class AgentStats
 
     public float CurrentSize => Mathf.Lerp(1f, maxSize, Mathf.Clamp01(age / growthTime));
     public bool IsAdult => age >= growthTime;
-    public bool IsAlive => hunger > 0f && thirst > 0f && health > 0f && age < lifetime;
+    public bool IsAlive => hunger > 0f && thirst > 0f && health > 0f && age < MaxLifetime;
 
     public AgentStats() { }
 
@@ -243,26 +298,25 @@ public class AgentStats
         age += dt;
 
         if (Time.time >= hungerPauseUntil)
-            hunger -= hungerDecayRate * dt;
+        {
+            DecreaseHunger(hungerDecayRate * dt);
+        }
 
         if (Time.time >= thirstPauseUntil)
-            thirst -= thirstDecayRate * dt;
-
-        hunger = Mathf.Clamp01(hunger);
-        thirst = Mathf.Clamp01(thirst);
+        {
+            DecreaseThirst(thirstDecayRate * dt);
+        }
 
         // Health logic
         if (hunger < 0.3f || thirst < 0.3f)
         {
-            health -= healthDecayRate * dt;
+            TakeDamage(healthRegenRate * dt);
         }
         else if (hunger >= 0.5f || thirst >= 0.5f)
         {
-            health += healthRegenRate * dt;
+            IncreaseHealth(healthRegenRate * dt);
         }
         // else do nothing (health stays same)
-
-        health = Mathf.Clamp01(health);
     }
 
 
@@ -283,7 +337,53 @@ public class AgentStats
         health = Mathf.Clamp01(health - amount);
     }
 
+    public void IncreaseHealth(float amount)
+    {
+        health += amount;
+                health = Mathf.Clamp01(health);
+    }
+
+    public void Mate()
+    {
+        DecreaseHunger(0.2f);
+        DecreaseThirst(0.2f);
+    }
+
+    public void DecreaseHunger(float value)
+    {
+        hunger -= value;
+        hunger = Mathf.Clamp01(hunger);
+    }
+
+    public void DecreaseThirst(float value)
+    {
+        thirst -= value;
+        thirst = Mathf.Clamp01(thirst);
+    }
+
     public bool CanMate => IsAdult && hunger >= 0.7f && thirst >= 0.7f;
+
+    public static AgentStats Clone(AgentStats source)
+    {
+        return new AgentStats
+        {
+            hunger = source.hunger,
+            thirst = source.thirst,
+            health = source.health,
+            speed = source.speed,
+            sightRange = source.sightRange,
+            maxSize = source.maxSize,
+            hungerDecayRate = source.hungerDecayRate,
+            thirstDecayRate = source.thirstDecayRate,
+            healthDecayRate = source.healthDecayRate,
+            healthRegenRate = source.healthRegenRate,
+            MaxLifetime = source.MaxLifetime,
+            growthTime = source.growthTime,
+            age = 0f, // newborn
+            hungerPauseUntil = 0f,
+            thirstPauseUntil = 0f
+        };
+    }
 }
 
 
@@ -402,26 +502,27 @@ public class AnimalBar : MonoBehaviour
 
     private float hungerTarget, thirstTarget, healthTarget;
 
+    public void SetStats(AgentStats newStats) => stats = newStats;
+
     private void Update()
     {
         if (stats == null) return;
 
-        // Update target values
-        hungerTarget = Mathf.Clamp01(stats.hunger);
-        thirstTarget = Mathf.Clamp01(stats.thirst);
-        healthTarget = Mathf.Clamp01(stats.health);
-
-        // Smooth fill transitions
         if (hungerBar) hungerBar.fillAmount = Mathf.Lerp(hungerBar.fillAmount, hungerTarget, Time.deltaTime * lerpSpeed);
         if (thirstBar) thirstBar.fillAmount = Mathf.Lerp(thirstBar.fillAmount, thirstTarget, Time.deltaTime * lerpSpeed);
         if (healthBar) healthBar.fillAmount = Mathf.Lerp(healthBar.fillAmount, healthTarget, Time.deltaTime * lerpSpeed);
-
-        // Show or hide mating icon
-        if (matingIcon != null)
-            matingIcon.SetActive(stats.CanMate);
+        if (matingIcon) matingIcon.SetActive(stats.CanMate);
     }
 
-    public void SetStats(AgentStats newStats) => stats = newStats;
+    public void UpdateFromStats()
+    {
+        return;
+        if (hungerBar) hungerBar.fillAmount = hungerTarget = stats.hunger;
+        if (thirstBar) thirstBar.fillAmount = thirstTarget = stats.thirst;
+        if (healthBar) healthBar.fillAmount = healthTarget = stats.health;
+
+        if (matingIcon) matingIcon.SetActive(stats.CanMate);
+    }
 }
 
 
@@ -436,6 +537,18 @@ public class EcosystemManager : Singleton<EcosystemManager>
     public Vector3 GetSpawnPosition()
     {
         return new Vector3(Random.Range(-bounds.x, bounds.x), 0.5f, Random.Range(-bounds.y, bounds.y));
+    }
+
+    public void SpawnAnimal(AgentAnimalBase parent1, AgentStats childStats, Vector3 spawnPos)
+    {
+        GameObject animalPrefab = (parent1 is PreyAgent) ? preyPrefab : predatorPrefab;
+
+        GameObject childObj = Instantiate(animalPrefab, spawnPos, Quaternion.identity);
+        if (childObj.TryGetComponent(out AgentBase agentBase))
+        {
+            var clonedStats = AgentStats.Clone(childStats);
+            agentBase.InitializeStats(clonedStats);
+        }
     }
 
     public void Remove(GameObject agent) => Destroy(agent);
@@ -678,6 +791,17 @@ public class RewardUtility : Singleton<RewardUtility>
     {
         float scaled = 1.0f * amount / 0.6f;
         agent.AddReward(scaled);
+    }
+
+    /// <summary>Reward for Mating. Baseline: +0.2 for delta.</summary>
+    public void AddMatingReward(Agent agent, float amount = 0.3f)
+    {
+        agent.AddReward(amount);
+    }
+    /// <summary>Reward for Mating. Baseline: +5 for success.</summary>
+    public void AddMatingSuccessReward(Agent agent, float amount = 5f)
+    {
+        agent.AddReward(amount);
     }
 
     /// <summary>Negative reward for being hungry or thirsty each frame. Penalty scales with deficiency.</summary>

@@ -7,6 +7,7 @@ public class SustainedConsumable : MonoBehaviour
 
     [Header("Consumption Type")]
     public Type consumableType;
+    [SerializeField] private ResourceBar resourceBar;
 
     [Header("Value Settings")]
     public float totalValue = 3f;
@@ -19,12 +20,11 @@ public class SustainedConsumable : MonoBehaviour
     [HideInInspector] public float valuePerTick;
     [HideInInspector] public int totalTicks;
 
-    [SerializeField] private ResourceBar resourceBar;
-
     private void Awake()
     {
         InitializeValues();
         resourceBar = GetComponentInChildren<ResourceBar>();
+        resourceBar.SetConsumable(this);
     }
 
     public void InitializeValues()
@@ -48,6 +48,9 @@ public class SustainedConsumable : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Only for Prey, updating value based on size as animal grows
+    /// </summary>
     public void UpdateFromSize(float newBiomass)
     {
         if (consumableType != Type.Prey) return;
@@ -74,9 +77,6 @@ public class SustainedConsumable : MonoBehaviour
         if (consumed <= 0f) return 0f;
 
         remainingValue = Mathf.Max(0f, consumed);
-
-        // Notify bar if available
-        resourceBar.SetTargetFill(remainingValue / totalValue);
 
         return consumed;
     }

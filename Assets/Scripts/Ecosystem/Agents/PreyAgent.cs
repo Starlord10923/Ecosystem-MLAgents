@@ -1,6 +1,7 @@
 using Unity.MLAgents.Actuators;
 using UnityEngine;
 
+[RequireComponent(typeof(SustainedConsumable))]
 public class PreyAgent : AgentAnimalBase
 {
     private SustainedConsumable sustainedConsumable;
@@ -38,13 +39,10 @@ public class PreyAgent : AgentAnimalBase
         if (transform.localScale.y != stats.CurrentSize)
         {
             transform.localScale = Vector3.one * stats.CurrentSize;
-            if (this is PreyAgent)
-            {
-                GetComponent<SustainedConsumable>().UpdateFromSize(stats.CurrentSize);
-            }
+            sustainedConsumable.UpdateFromSize(stats.CurrentSize);
         }
     }
-    
+
     public override void Die()
     {
         base.Die();
