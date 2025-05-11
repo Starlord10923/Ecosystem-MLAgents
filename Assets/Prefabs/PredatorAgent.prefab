@@ -827,8 +827,8 @@ MonoBehaviour:
     speed: 1
     sightRange: 1
     maxSize: 1
-    hungerDecayRate: 0.02
-    thirstDecayRate: 0.03
+    hungerDecayRate: 0.03
+    thirstDecayRate: 0.02
     healthDecayRate: 0.01
     healthRegenRate: 0.02
     MaxLifetime: 60

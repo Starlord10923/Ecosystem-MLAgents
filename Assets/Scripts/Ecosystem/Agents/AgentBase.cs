@@ -70,6 +70,10 @@ public class AgentBase : Agent
         {
             if (stats.LivedFullLife)
                 EcosystemManager.Instance.reachedLifeEnd += 1;
+            if(stats.hunger<=0f)
+                EcosystemManager.Instance.diedFromHunger += 1;
+            if(stats.thirst<=0f)
+                EcosystemManager.Instance.diedFromThirst += 1;
             Die();
             return;
         }

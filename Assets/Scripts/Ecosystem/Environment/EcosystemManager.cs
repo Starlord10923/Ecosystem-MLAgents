@@ -25,10 +25,12 @@ public class EcosystemManager : Singleton<EcosystemManager>
     public int currentPredatorCount = 0;
     public int foodConsumed = 0;
     public int waterConsumed = 0;
-    public int animalKilled = 0;
     public int totalMating = 0;
     public float partialMatingReward = 0f;
+    public int animalKilled = 0;
     public int reachedLifeEnd = 0;
+    public int diedFromHunger = 0;
+    public int diedFromThirst = 0;
 
     public void Register(AgentBase agent)
     {

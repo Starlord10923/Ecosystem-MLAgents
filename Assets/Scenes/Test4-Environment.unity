@@ -294,7 +294,7 @@ MonoBehaviour:
   foodPrefabs:
   - {fileID: 6012799385712412350, guid: 944a56aeb747e7a41b3077592a37b153, type: 3}
   waterPrefab: {fileID: 3880577161776740337, guid: 70ac7b89ba9d03943be85d845a7e1e47, type: 3}
-  initialPrey: 20
+  initialPrey: 10
   initialPredators: 5
   initialFood: 20
   initialWater: 10
@@ -522,6 +522,21 @@ MonoBehaviour:
   Environment: {fileID: 2769830148051336634}
   bounds: {x: 45, y: 45}
   UseHeuristicControl: 0
+  showValues: 0
+  totalEpisodes: 0
+  totalRewardGiven: 0
+  totalPenaltyGiven: 0
+  crowdingPenalty: 0
+  totalPreySpawned: 0
+  totalPredatorsSpawned: 0
+  currentPreyCount: 0
+  currentPredatorCount: 0
+  foodConsumed: 0
+  waterConsumed: 0
+  animalKilled: 0
+  totalMating: 0
+  partialMatingReward: 0
+  reachedLifeEnd: 0
 --- !u!4 &1793235278
 Transform:
   m_ObjectHideFlags: 0

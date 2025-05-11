@@ -871,8 +871,8 @@ MonoBehaviour:
     speed: 1
     sightRange: 1
     maxSize: 1
-    hungerDecayRate: 0.02
-    thirstDecayRate: 0.03
+    hungerDecayRate: 0.03
+    thirstDecayRate: 0.02
     healthDecayRate: 0.01
     healthRegenRate: 0.02
     MaxLifetime: 60
@@ -882,6 +882,7 @@ MonoBehaviour:
     thirstPauseUntil: 0
   maxSpeed: 0
   animalBar: {fileID: 7783868138811611985}
+  animalType: 0
 --- !u!114 &6159331996059332121
 MonoBehaviour:
   m_ObjectHideFlags: 0
