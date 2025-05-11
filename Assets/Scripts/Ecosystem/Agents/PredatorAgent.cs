@@ -3,6 +3,12 @@ using UnityEngine;
 
 public class PredatorAgent : AgentAnimalBase
 {
+    protected override void Awake()
+    {
+        base.Awake();
+        animalType = AnimalType.Predator;
+    }
+
     public override void OnEpisodeBegin()
     {
         InitializeStats();
@@ -24,6 +30,7 @@ public class PredatorAgent : AgentAnimalBase
     {
         currentMove = new Vector2(actions.ContinuousActions[0], actions.ContinuousActions[1]);
         brake = Mathf.Clamp01(actions.DiscreteActions[0]);
+        PenalizeCrowding();
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)

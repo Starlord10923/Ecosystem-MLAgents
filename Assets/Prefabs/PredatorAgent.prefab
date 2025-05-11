@@ -745,7 +745,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Size: {x: 0.1, y: 1, z: 0.1}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!54 &7590230739380001441
 Rigidbody:
@@ -838,6 +838,7 @@ MonoBehaviour:
     thirstPauseUntil: 0
   maxSpeed: 0
   animalBar: {fileID: 3762020455466233116}
+  animalType: 1
 --- !u!114 &7780589708162771760
 MonoBehaviour:
   m_ObjectHideFlags: 0

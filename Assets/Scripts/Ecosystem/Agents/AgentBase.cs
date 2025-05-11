@@ -74,7 +74,7 @@ public class AgentBase : Agent
             return;
         }
 
-        RewardUtility.AddDecayPenalty(this, stats.hunger, stats.thirst);
+        RewardUtility.ApplyVitalityReward(this, stats.hunger, stats.thirst);
 
         // Compute movement
         moveDir.Set(transform.forward.x * currentMove.y, 0f, transform.forward.z * currentMove.y);

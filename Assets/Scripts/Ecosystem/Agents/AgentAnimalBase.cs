@@ -4,6 +4,8 @@ using UnityEngine;
 
 public abstract class AgentAnimalBase : AgentBase
 {
+    public enum AnimalType { Prey, Predator }
+    public AnimalType animalType;
     private CoroutineHandle currentConsumption;
     private Collider currentTarget = null;
 
@@ -30,7 +32,7 @@ public abstract class AgentAnimalBase : AgentBase
     {
         if (currentConsumption.IsRunning || !other.TryGetComponent<SustainedConsumable>(out var target))
             return;
-        if (this is PreyAgent && target.consumableType == SustainedConsumable.Type.Prey)
+        if (animalType==AnimalType.Prey && target.consumableType == SustainedConsumable.Type.Prey)
             return;
 
         currentTarget = other;
@@ -150,6 +152,27 @@ public abstract class AgentAnimalBase : AgentBase
         EcosystemManager.Instance.SpawnAnimal(this, childStats, spawnPos);
 
         RewardUtility.AddMatingSuccessReward(this);
+    }
+
+    static readonly Collider[] probeHits = new Collider[8];   // tweak size as needed
+    public void PenalizeCrowding()
+    {
+        int hitCount = Physics.OverlapSphereNonAlloc(transform.position, 2f, probeHits);
+        int nearbyPrey = 0;
+        for (int i = 0; i < hitCount; i++)
+        {
+            var hit = probeHits[i];
+            if (hit == null) continue;
+
+            if (hit.gameObject != gameObject && hit.TryGetComponent<AgentAnimalBase>(out var animal))
+            {
+                if (animalType == animal.animalType)
+                    nearbyPrey += 1;
+            }
+        }
+
+        if (nearbyPrey >= 2) // crowded
+            RewardUtility.AddCrowdedPenalty(this, nearbyPrey);
     }
 
     public override void Die()

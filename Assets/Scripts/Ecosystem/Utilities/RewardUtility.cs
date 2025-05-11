@@ -22,7 +22,7 @@ public static class RewardUtility
     /// <summary>Reward for predator consuming prey. Baseline: +5.0 for 0.6 units.</summary>
     public static void AddPredationReward(Agent agent, float amount)
     {
-        float scaled = 5.0f * amount / 0.6f;
+        float scaled = 3.0f * amount / 0.6f;
         EcosystemManager.Instance.totalRewardGiven += scaled;
         agent.AddReward(scaled);
     }
@@ -43,19 +43,40 @@ public static class RewardUtility
     }
 
     /// <summary>Negative reward for being hungry or thirsty each frame. Penalty scales with deficiency.</summary>
-    public static void AddDecayPenalty(Agent agent, float hunger, float thirst)
+    public static void ApplyVitalityReward(Agent agent, float hunger, float thirst)
     {
-        float penalty = ComputePenalty(hunger) + ComputePenalty(thirst);
-        penalty = Mathf.Clamp(penalty, -0.1f, 0f);
-        float scaledPenalty = penalty * Time.fixedDeltaTime;
-        EcosystemManager.Instance.totalPenaltyGiven += Mathf.Abs(scaledPenalty);
-        agent.AddReward(scaledPenalty);
+        // --- Reward Case: healthy levels ---
+        if (hunger > 0.7f && thirst > 0.7f)
+        {
+            float reward = (hunger - 0.7f) + (thirst - 0.7f); // max theoretical: (1.0 - 0.7) * 2 = 0.6
+            float scaledReward = Mathf.Clamp(reward, 0f, 0.1f) * Time.fixedDeltaTime;
+
+            EcosystemManager.Instance.totalRewardGiven += scaledReward;
+            agent.AddReward(scaledReward);
+        }
+        // --- Penalty Case: undernourished or dehydrated ---
+        else
+        {
+            float penalty = ComputePenalty(hunger) + ComputePenalty(thirst);  // max ~ -0.2
+            float scaledPenalty = Mathf.Clamp(penalty, -0.1f, 0f) * Time.fixedDeltaTime;
+
+            EcosystemManager.Instance.totalPenaltyGiven += Mathf.Abs(scaledPenalty);
+            agent.AddReward(scaledPenalty);
+        }
     }
 
     public static void AddDeathPenalty(Agent agent)
     {
         EcosystemManager.Instance.totalPenaltyGiven += 1f;
         agent.AddReward(-1f);
+    }
+
+    public static void AddCrowdedPenalty(Agent agent, int count)
+    {
+        float penalty = Mathf.Clamp01(count / 6f) * 0.05f;  // caps at -0.05
+        EcosystemManager.Instance.totalPenaltyGiven += penalty;
+        EcosystemManager.Instance.crowdingPenalty += penalty;
+        agent.AddReward(-penalty);
     }
 
     /// <summary>Flat death penalty. Called once on death.</summary>

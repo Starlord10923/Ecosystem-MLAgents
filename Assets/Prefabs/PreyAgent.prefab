@@ -789,7 +789,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Size: {x: 0.1, y: 1, z: 0.1}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!54 &2689725195228770839
 Rigidbody:
@@ -939,7 +939,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 683ff6e4d9a6d514f964436c55898bc6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  consumableType: 0
+  consumableType: 2
   resourceBar: {fileID: 4960202130788911159}
   totalValue: 3
   remainingValue: 0

@@ -18,6 +18,7 @@ public class EcosystemManager : Singleton<EcosystemManager>
     public int totalEpisodes = 0;
     public float totalRewardGiven = 0f;
     public float totalPenaltyGiven = 0f;
+    public float crowdingPenalty = 0f;
     public int totalPreySpawned = 0;
     public int totalPredatorsSpawned = 0;
     public int currentPreyCount = 0;
