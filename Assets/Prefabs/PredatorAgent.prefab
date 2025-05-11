@@ -772,7 +772,7 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 0
+  m_Constraints: 80
   m_CollisionDetection: 1
 --- !u!114 &4368557937301985800
 MonoBehaviour:
@@ -824,13 +824,13 @@ MonoBehaviour:
     hunger: 1
     thirst: 1
     health: 1
-    speed: 0
-    sightRange: 0
-    maxSize: 0
-    hungerDecayRate: 0.005
-    thirstDecayRate: 0.0075
-    healthDecayRate: 0.005
-    healthRegenRate: 0.01
+    speed: 1
+    sightRange: 1
+    maxSize: 1
+    hungerDecayRate: 0.02
+    thirstDecayRate: 0.03
+    healthDecayRate: 0.01
+    healthRegenRate: 0.02
     MaxLifetime: 60
     growthTime: 20
     age: 0

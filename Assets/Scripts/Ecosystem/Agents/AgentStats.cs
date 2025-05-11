@@ -11,10 +11,10 @@ public class AgentStats
     public float sightRange = 1f;
     public float maxSize = 1f;
 
-    public float hungerDecayRate = 0.005f;
-    public float thirstDecayRate = 0.0075f;
-    public float healthDecayRate = 0.005f;
-    public float healthRegenRate = 0.01f;
+    public float hungerDecayRate = 0.02f;
+    public float thirstDecayRate = 0.03f;
+    public float healthDecayRate = 0.01f;
+    public float healthRegenRate = 0.02f;
 
     public float MaxLifetime = 60f;
     public float growthTime = 20f;

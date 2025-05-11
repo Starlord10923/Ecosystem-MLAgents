@@ -12,9 +12,6 @@ public class SpawnerManager : Singleton<SpawnerManager>
     public List<GameObject> foodPrefabs;
     public GameObject waterPrefab;
 
-    [Header("Environment Bounds")]
-    public float spawnRadius = 20f;
-
     [Header("Spawn Settings")]
     public int initialPrey = 10;
     public int initialPredators = 5;
@@ -25,6 +22,7 @@ public class SpawnerManager : Singleton<SpawnerManager>
     public bool spawnPredators = false;
 
     [Header("Respawn Settings")]
+    public bool SpawnInIntervals = true;
     public float foodSpawnInterval = 10f;
     public int foodSpawnAmount = 5;
     public float waterSpawnInterval = 20f;
@@ -59,48 +57,56 @@ public class SpawnerManager : Singleton<SpawnerManager>
         Spawn(foodPrefabs, initialFood, SpawnType.Food);
         Spawn(waterPrefab, initialWater, SpawnType.Water);
 
-        foodSpawnHandle = Timing.RunCoroutine(SpawnFoodRoutine());
-        waterSpawnHandle = Timing.RunCoroutine(SpawnWaterRoutine());
+        if (SpawnInIntervals)
+        {
+            foodSpawnHandle = Timing.RunCoroutine(SpawnFoodRoutine());
+            waterSpawnHandle = Timing.RunCoroutine(SpawnWaterRoutine());
+        }
 
         if (Telemetry.Instance && Telemetry.Instance.EpisodeIndex == 0)
-            Telemetry.Instance.OnEpisodeBegin();              // ✱ first launch
+                Telemetry.Instance.OnEpisodeBegin();              // ✱ first launch
     }
+
+    [ContextMenu("Spawn Prey")]
+    public void SpawnPrey() => Spawn(preyPrefabs, initialPrey, SpawnType.Prey);
 
     void Spawn(List<GameObject> prefabs, int count, SpawnType type)
     {
-        if (prefabs.Count == 0 || count <= 0)
-        {
-            Debug.LogWarning("No prefabs to spawn.");
-            return;
-        }
+        if (prefabs.Count == 0 || count <= 0) return;
 
         Transform parent = GetParent(type);
+        int quadrant = type switch
+        {
+            SpawnType.Prey => 1,
+            SpawnType.Predator => 3,
+            _ => 0    // food / water anywhere
+        };
 
         for (int i = 0; i < count; i++)
         {
-            int index = Random.Range(0, prefabs.Count);
-            Vector3 pos = GetValidSpawnPosition(prefabs[index]);
+            int idx = Random.Range(0, prefabs.Count);
+            Vector3 pos = GetValidSpawnPosition(prefabs[idx], quadrant);
             if (pos == Vector3.positiveInfinity) continue;
-            Instantiate(prefabs[index], pos, Quaternion.identity, parent);
+
+            Quaternion rot = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
+            Instantiate(prefabs[idx], pos, rot, parent);
         }
     }
 
     void Spawn(GameObject prefab, int count, SpawnType type)
     {
-        if (prefab == null || count <= 0)
-        {
-            Debug.LogWarning("No prefab to spawn.");
-            return;
-        }
+        if (prefab == null || count <= 0) return;
 
         Transform parent = GetParent(type);
+        int quadrant = (type == SpawnType.Predator) ? 3 :
+                       (type == SpawnType.Prey) ? 1 : 0;
 
         for (int i = 0; i < count; i++)
         {
-            Vector3 pos = GetValidSpawnPosition(prefab);
+            Vector3 pos = GetValidSpawnPosition(prefab, quadrant);
             if (pos == Vector3.positiveInfinity) continue;
-            Quaternion randomYRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-            Instantiate(prefab, pos, randomYRotation, parent);
+            Quaternion rot = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+            Instantiate(prefab, pos, rot, parent);
         }
     }
 
@@ -146,38 +152,32 @@ public class SpawnerManager : Singleton<SpawnerManager>
     }
 
     static readonly Collider[] probeHits = new Collider[16];   // tweak size as needed
-    private Vector3 GetValidSpawnPosition(GameObject prefab)
+    Vector3 GetValidSpawnPosition(GameObject prefab, int quadrant = 0)
     {
-        float radius = checkRadius * Mathf.Max(prefab.transform.localScale.x, prefab.transform.localScale.y, prefab.transform.localScale.z);
+        float radius = checkRadius * Mathf.Max(prefab.transform.localScale.x,
+                                               prefab.transform.localScale.y,
+                                               prefab.transform.localScale.z);
 
         for (int attempt = 0; attempt < maxSpawnAttempts; attempt++)
         {
-            Vector3 rnd = EcosystemManager.Instance.GetSpawnPosition();
-            Vector3 pos = new Vector3(rnd.x, prefab.transform.localScale.y, rnd.z);
+            Vector3 pos = EcosystemManager.Instance.GetSpawnPosition(quadrant);
+            pos.y = prefab.transform.localScale.y;
 
             int hitCount = Physics.OverlapSphereNonAlloc(
                 pos, radius, probeHits, obstacleMask, QueryTriggerInteraction.Collide);
 
             bool blocked = false;
-
             for (int i = 0; i < hitCount; i++)
             {
                 Collider c = probeHits[i];
                 if (!c || string.IsNullOrEmpty(c.tag)) continue;
-
-                if (blockingTags.Contains(c.tag))
-                {
-                    blocked = true;
-                    break;
-                }
+                if (blockingTags.Contains(c.tag)) { blocked = true; break; }
             }
 
-            if (!blocked)
-                return pos;
+            if (!blocked) return pos;
         }
 
-        Debug.LogWarning($"[SpawnerManager] Failed to find valid position for {prefab.name} after {maxSpawnAttempts} attempts.");
+        CustomLogger.LogWarning($"[SpawnerManager] Could not place {prefab.name} in quadrant {quadrant}");
         return Vector3.positiveInfinity;
     }
-
 }

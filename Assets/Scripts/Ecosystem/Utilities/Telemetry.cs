@@ -20,9 +20,9 @@ public class Telemetry : Singleton<Telemetry>
     /* ---------- environment level ---------- */
     public int EpisodeIndex { get; private set; } = 0;
     double episodeStart = 0.0;
-    int    spawned      = 0;
-    int    dead         = 0;
-    float  rewardSum    = 0f;
+    int spawned = 0;
+    int dead = 0;
+    float rewardSum = 0f;
 
     public void OnEpisodeBegin()
     {
@@ -32,18 +32,22 @@ public class Telemetry : Singleton<Telemetry>
         rewardSum = 0;
     }
 
-    public void OnAgentSpawn()  => spawned++;
-    public void OnAgentDeath()  => dead++;
+    public void OnAgentSpawn() => spawned++;
+    public void OnAgentDeath() => dead++;
 
     public void AddReward(float r) => rewardSum += r;
 
     public void OnEpisodeEnd()
     {
         double end = Time.timeAsDouble;
-        writer.WriteLine($"{EpisodeIndex},{episodeStart:F2},{end:F2},{end-episodeStart:F2}," +
+        writer.WriteLine($"{EpisodeIndex},{episodeStart:F2},{end:F2},{end - episodeStart:F2}," +
                          $"{spawned},{dead},{rewardSum:F3}");
         writer.Flush();
     }
 
-    void OnDestroy() => writer?.Close();
+    protected override void OnDestroy()
+    {
+        base.OnDestroy();
+        writer?.Close();
+    }
 }

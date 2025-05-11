@@ -14,7 +14,6 @@ public class PreyAgent : AgentAnimalBase
     public override void OnEpisodeBegin()
     {
         InitializeStats();
-        transform.position = EcosystemManager.Instance.GetSpawnPosition();
         rb.velocity = Vector3.zero;
     }
 
@@ -43,6 +42,8 @@ public class PreyAgent : AgentAnimalBase
         continuous[1] = Input.GetAxis("Vertical");
 
         discrete[0] = Input.GetKey(KeyCode.Space) ? 1 : 0;
+
+        CustomLogger.Log($"Heuristic called : {continuous[0]},{continuous[1]},{discrete[0]}");
     }
 
     public override void UpdateSize()

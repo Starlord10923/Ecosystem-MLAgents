@@ -199,6 +199,7 @@ public abstract class AgentAnimalBase : AgentBase
 
 --- FILE: Agents\AgentBase.cs ---
 using Unity.MLAgents;
+using Unity.MLAgents.Sensors;
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
@@ -217,9 +218,21 @@ public class AgentBase : Agent
         base.OnEnable();
         EcosystemManager.Instance.Register(this);
     }
+
     protected override void OnDisable()
     {
         base.OnDisable();
+        if (!Application.isPlaying || EcosystemManager.Instance == null)
+            return;
+
+        EcosystemManager.Instance.Unregister(this);
+    }
+
+    private void OnDestroy()
+    {
+        if (!Application.isPlaying || EcosystemManager.Instance == null)
+            return;
+
         EcosystemManager.Instance.Unregister(this);
     }
 
@@ -229,13 +242,31 @@ public class AgentBase : Agent
         animalBar = GetComponentInChildren<AnimalBar>();
     }
 
+    protected virtual void Start()
+    {
+        if (TryGetComponent<Unity.MLAgents.Policies.BehaviorParameters>(out var bp))
+        {
+            bp.BehaviorType = EcosystemManager.Instance.UseHeuristicControl
+                ? Unity.MLAgents.Policies.BehaviorType.HeuristicOnly
+                : Unity.MLAgents.Policies.BehaviorType.Default;
+        }
+    }
+
     public virtual void InitializeStats(AgentStats inherited = null)
     {
-        stats = inherited ?? new AgentStats(Random.Range(2f, 4f), Random.Range(1.5f, 2.5f), Random.Range(8f, 12f));
-        maxSpeed = stats.speed;
+        stats = inherited ?? new AgentStats(
+                     Random.Range(10f, 20f),  // speed
+                     Random.Range(1.5f, 2.5f),  // maxSize
+                     Random.Range(0.8f, 1.5f)); // sightRange (keep in small bounds)
 
+        maxSpeed = stats.speed;
         transform.localScale = Vector3.one * stats.CurrentSize;
         animalBar.SetStats(stats);
+
+        // scale RayPerception length by sightRange
+        const float baseRay = 20f; // baseline
+        foreach (var sensor in GetComponents<RayPerceptionSensorComponent3D>())
+            sensor.RayLength = baseRay * stats.sightRange;
     }
 
     public virtual void FixedUpdate()
@@ -252,17 +283,17 @@ public class AgentBase : Agent
 
         Vector3 moveDir = transform.TransformDirection(new Vector3(currentMove.x, 0, currentMove.y));
         Vector3 desiredXZ = (1f - brake) * maxSpeed * moveDir.normalized;
+        Vector3 prevVel = rb.velocity;
 
-        if (Physics.Raycast(transform.position, Vector3.down, 1.1f, LayerMask.GetMask("Ground")))
+        rb.velocity = new Vector3(desiredXZ.x, rb.velocity.y, desiredXZ.z); // ← keep vertical component
+        CustomLogger.Log($"MoveDir: {moveDir}, Brake: {brake}, MaxSpeed: {maxSpeed}, Velocity: {rb.velocity}, PreviousVelocity: {prevVel}");
+        if (moveDir != Vector3.zero)
         {
-            rb.velocity = new Vector3(desiredXZ.x, rb.velocity.y, desiredXZ.z); // ← keep vertical component
-
-            if (moveDir != Vector3.zero)
-            {
-                Quaternion targetRot = Quaternion.LookRotation(moveDir);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, 10f * Time.fixedDeltaTime);
-            }
+            Quaternion targetRot = Quaternion.LookRotation(moveDir);
+            float turnSpeed = 120f; // degrees per second — adjust to taste
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, turnSpeed * Time.fixedDeltaTime);
         }
+
 
         UpdateSize();
     }
@@ -290,10 +321,10 @@ public class AgentStats
     public float sightRange = 1f;
     public float maxSize = 1f;
 
-    public float hungerDecayRate = 0.005f;
-    public float thirstDecayRate = 0.0075f;
-    public float healthDecayRate = 0.005f;
-    public float healthRegenRate = 0.01f;
+    public float hungerDecayRate = 0.02f;
+    public float thirstDecayRate = 0.03f;
+    public float healthDecayRate = 0.01f;
+    public float healthRegenRate = 0.02f;
 
     public float MaxLifetime = 60f;
     public float growthTime = 20f;
@@ -433,6 +464,18 @@ public class PredatorAgent : AgentAnimalBase
         brake = Mathf.Clamp01(actions.DiscreteActions[0]);
     }
 
+    public override void Heuristic(in ActionBuffers actionsOut)
+    {
+        var continuous = actionsOut.ContinuousActions;
+        var discrete = actionsOut.DiscreteActions;
+
+        continuous[0] = Input.GetAxis("Horizontal");
+        continuous[1] = Input.GetAxis("Vertical");
+
+        discrete[0] = Input.GetKey(KeyCode.Space) ? 1 : 0;
+        CustomLogger.Log($"Heuristic called : {continuous[0]},{continuous[1]},{discrete[0]}");
+    }
+
     public override void Die()
     {
         base.Die();
@@ -459,7 +502,6 @@ public class PreyAgent : AgentAnimalBase
     public override void OnEpisodeBegin()
     {
         InitializeStats();
-        transform.position = EcosystemManager.Instance.GetSpawnPosition();
         rb.velocity = Vector3.zero;
     }
 
@@ -477,6 +519,19 @@ public class PreyAgent : AgentAnimalBase
     {
         currentMove = new Vector2(actions.ContinuousActions[0], actions.ContinuousActions[1]);
         brake = Mathf.Clamp01(actions.DiscreteActions[0]);
+    }
+
+    public override void Heuristic(in ActionBuffers actionsOut)
+    {
+        var continuous = actionsOut.ContinuousActions;
+        var discrete = actionsOut.DiscreteActions;
+
+        continuous[0] = Input.GetAxis("Horizontal");
+        continuous[1] = Input.GetAxis("Vertical");
+
+        discrete[0] = Input.GetKey(KeyCode.Space) ? 1 : 0;
+
+        CustomLogger.Log($"Heuristic called : {continuous[0]},{continuous[1]},{discrete[0]}");
     }
 
     public override void UpdateSize()
@@ -544,6 +599,7 @@ public class EcosystemManager : Singleton<EcosystemManager>
 {
     public GameObject Environment;
     public Vector2 bounds = new(20, 20);
+    public bool UseHeuristicControl = true;  // Toggle globally in Inspector or via UI
 
     /* ─── Active-agent tracking ─── */
     private readonly HashSet<AgentBase> liveAgents = new();
@@ -575,11 +631,35 @@ public class EcosystemManager : Singleton<EcosystemManager>
         Stats.RecordMeanAge(ageSum / liveAgents.Count);
     }
 
-    public Vector3 GetSpawnPosition()
+    public Vector3 GetSpawnPosition(int quadrant = 0)
     {
-        return Environment.transform.position + new Vector3(Random.Range(-bounds.x, bounds.x), 1f, Random.Range(-bounds.y, bounds.y));
+        Vector3 center = Environment.transform.position;   // origin of the whole map
+
+        float halfX = bounds.x;    // positive half-extent in X
+        float halfZ = bounds.y;    // positive half-extent in Z
+        CustomLogger.Log(quadrant);
+
+        float x = quadrant switch
+        {
+            1 => Random.Range(0f, halfX),   // +x
+            2 => Random.Range(-halfX, 0f),    // –x
+            3 => Random.Range(-halfX, 0f),    // –x
+            4 => Random.Range(0f, halfX),   // +x
+            _ => Random.Range(-halfX, halfX)  // any
+        };
+
+        float z = quadrant switch
+        {
+            1 => Random.Range(0f, halfZ),   // +z
+            2 => Random.Range(0f, halfZ),   // +z
+            3 => Random.Range(-halfZ, 0f),    // –z
+            4 => Random.Range(-halfZ, 0f),    // –z
+            _ => Random.Range(-halfZ, halfZ)  // any
+        };
+
+        return center + new Vector3(x, 1f, z);
     }
-    
+
     public void SpawnAnimal(AgentAnimalBase parent, AgentStats childStats, Vector3 spawnPos)
     {
         GameObject animalPrefab = parent is PreyAgent ? SpawnerManager.Instance.preyPrefabs[0] : SpawnerManager.Instance.predatorPrefabs[0];
@@ -595,6 +675,8 @@ public class EcosystemManager : Singleton<EcosystemManager>
     /* ─── world reset ─── */
     public void ResetEnvironment()
     {
+        if (SpawnerManager.Instance == null || Telemetry.Instance == null)
+            return;
         // Destroy every resource & animal still present
         Telemetry.Instance.OnEpisodeEnd();
         foreach (var animal in FindObjectsByType<AgentAnimalBase>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID))
@@ -623,6 +705,34 @@ public class EcosystemManager : Singleton<EcosystemManager>
         Vector3 center = transform.position;
         Vector3 size = new(bounds.x * 2, 1f, bounds.y * 2); // y=1 for a flat cube
         Gizmos.DrawWireCube(center, size);
+
+        // Draw quadrant lines
+        Vector3 xStart = center + new Vector3(-bounds.x, 0, 0);
+        Vector3 xEnd = center + new Vector3(bounds.x, 0, 0);
+        Vector3 zStart = center + new Vector3(0, 0, -bounds.y);
+        Vector3 zEnd = center + new Vector3(0, 0, bounds.y);
+        Gizmos.DrawLine(xStart, xEnd);
+        Gizmos.DrawLine(zStart, zEnd);
+
+        // Define quadrant centers
+        Vector3 q1 = center + new Vector3(bounds.x / 2, 0, bounds.y / 2);
+        Vector3 q2 = center + new Vector3(-bounds.x / 2, 0, bounds.y / 2);
+        Vector3 q3 = center + new Vector3(-bounds.x / 2, 0, -bounds.y / 2);
+        Vector3 q4 = center + new Vector3(bounds.x / 2, 0, -bounds.y / 2);
+
+        // Draw labels
+        UnityEditor.Handles.color = Color.white;
+        var labelStyle = new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            normal = { textColor = Color.white }
+        };
+
+        // Draw quadrant labels
+        UnityEditor.Handles.Label(q1 + Vector3.up * 2f, "Quadrant 1\nPrey", labelStyle);
+        UnityEditor.Handles.Label(q2 + Vector3.up * 2f, "Quadrant 2", labelStyle);
+        UnityEditor.Handles.Label(q3 + Vector3.up * 2f, "Quadrant 3\nPredator", labelStyle);
+        UnityEditor.Handles.Label(q4 + Vector3.up * 2f, "Quadrant 4", labelStyle);
     }
 #endif
 }
@@ -664,9 +774,6 @@ public class SpawnerManager : Singleton<SpawnerManager>
     public List<GameObject> foodPrefabs;
     public GameObject waterPrefab;
 
-    [Header("Environment Bounds")]
-    public float spawnRadius = 20f;
-
     [Header("Spawn Settings")]
     public int initialPrey = 10;
     public int initialPredators = 5;
@@ -677,6 +784,7 @@ public class SpawnerManager : Singleton<SpawnerManager>
     public bool spawnPredators = false;
 
     [Header("Respawn Settings")]
+    public bool SpawnInIntervals = true;
     public float foodSpawnInterval = 10f;
     public int foodSpawnAmount = 5;
     public float waterSpawnInterval = 20f;
@@ -711,48 +819,56 @@ public class SpawnerManager : Singleton<SpawnerManager>
         Spawn(foodPrefabs, initialFood, SpawnType.Food);
         Spawn(waterPrefab, initialWater, SpawnType.Water);
 
-        foodSpawnHandle = Timing.RunCoroutine(SpawnFoodRoutine());
-        waterSpawnHandle = Timing.RunCoroutine(SpawnWaterRoutine());
+        if (SpawnInIntervals)
+        {
+            foodSpawnHandle = Timing.RunCoroutine(SpawnFoodRoutine());
+            waterSpawnHandle = Timing.RunCoroutine(SpawnWaterRoutine());
+        }
 
         if (Telemetry.Instance && Telemetry.Instance.EpisodeIndex == 0)
-            Telemetry.Instance.OnEpisodeBegin();              // ✱ first launch
+                Telemetry.Instance.OnEpisodeBegin();              // ✱ first launch
     }
+
+    [ContextMenu("Spawn Prey")]
+    public void SpawnPrey() => Spawn(preyPrefabs, initialPrey, SpawnType.Prey);
 
     void Spawn(List<GameObject> prefabs, int count, SpawnType type)
     {
-        if (prefabs.Count == 0 || count <= 0)
-        {
-            Debug.LogWarning("No prefabs to spawn.");
-            return;
-        }
+        if (prefabs.Count == 0 || count <= 0) return;
 
         Transform parent = GetParent(type);
+        int quadrant = type switch
+        {
+            SpawnType.Prey => 1,
+            SpawnType.Predator => 3,
+            _ => 0    // food / water anywhere
+        };
 
         for (int i = 0; i < count; i++)
         {
-            int index = Random.Range(0, prefabs.Count);
-            Vector3 pos = GetValidSpawnPosition(prefabs[index]);
+            int idx = Random.Range(0, prefabs.Count);
+            Vector3 pos = GetValidSpawnPosition(prefabs[idx], quadrant);
             if (pos == Vector3.positiveInfinity) continue;
-            Instantiate(prefabs[index], pos, Quaternion.identity, parent);
+
+            Quaternion rot = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
+            Instantiate(prefabs[idx], pos, rot, parent);
         }
     }
 
     void Spawn(GameObject prefab, int count, SpawnType type)
     {
-        if (prefab == null || count <= 0)
-        {
-            Debug.LogWarning("No prefab to spawn.");
-            return;
-        }
+        if (prefab == null || count <= 0) return;
 
         Transform parent = GetParent(type);
+        int quadrant = (type == SpawnType.Predator) ? 3 :
+                       (type == SpawnType.Prey) ? 1 : 0;
 
         for (int i = 0; i < count; i++)
         {
-            Vector3 pos = GetValidSpawnPosition(prefab);
+            Vector3 pos = GetValidSpawnPosition(prefab, quadrant);
             if (pos == Vector3.positiveInfinity) continue;
-            Quaternion randomYRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-            Instantiate(prefab, pos, randomYRotation, parent);
+            Quaternion rot = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+            Instantiate(prefab, pos, rot, parent);
         }
     }
 
@@ -798,40 +914,34 @@ public class SpawnerManager : Singleton<SpawnerManager>
     }
 
     static readonly Collider[] probeHits = new Collider[16];   // tweak size as needed
-    private Vector3 GetValidSpawnPosition(GameObject prefab)
+    Vector3 GetValidSpawnPosition(GameObject prefab, int quadrant = 0)
     {
-        float radius = checkRadius * Mathf.Max(prefab.transform.localScale.x, prefab.transform.localScale.y, prefab.transform.localScale.z);
+        float radius = checkRadius * Mathf.Max(prefab.transform.localScale.x,
+                                               prefab.transform.localScale.y,
+                                               prefab.transform.localScale.z);
 
         for (int attempt = 0; attempt < maxSpawnAttempts; attempt++)
         {
-            Vector3 rnd = EcosystemManager.Instance.GetSpawnPosition();
-            Vector3 pos = new Vector3(rnd.x, prefab.transform.localScale.y, rnd.z);
+            Vector3 pos = EcosystemManager.Instance.GetSpawnPosition(quadrant);
+            pos.y = prefab.transform.localScale.y;
 
             int hitCount = Physics.OverlapSphereNonAlloc(
                 pos, radius, probeHits, obstacleMask, QueryTriggerInteraction.Collide);
 
             bool blocked = false;
-
             for (int i = 0; i < hitCount; i++)
             {
                 Collider c = probeHits[i];
                 if (!c || string.IsNullOrEmpty(c.tag)) continue;
-
-                if (blockingTags.Contains(c.tag))
-                {
-                    blocked = true;
-                    break;
-                }
+                if (blockingTags.Contains(c.tag)) { blocked = true; break; }
             }
 
-            if (!blocked)
-                return pos;
+            if (!blocked) return pos;
         }
 
-        Debug.LogWarning($"[SpawnerManager] Failed to find valid position for {prefab.name} after {maxSpawnAttempts} attempts.");
+        CustomLogger.LogWarning($"[SpawnerManager] Could not place {prefab.name} in quadrant {quadrant}");
         return Vector3.positiveInfinity;
     }
-
 }
 
 
@@ -921,6 +1031,72 @@ public class SustainedConsumable : MonoBehaviour
 }
 
 
+--- FILE: Utilities\CustomLogger.cs ---
+using System;
+using UnityEngine;
+#if UNITY_EDITOR
+
+public static class CustomLogger
+{
+    private static readonly bool isLoggingEnabled = false;
+    public static void Log(object message)
+    {
+        if (isLoggingEnabled)
+        {
+            Debug.Log(message);
+        }
+    }
+
+    public static void LogWarning(object message)
+    {
+        if (isLoggingEnabled)
+        {
+            Debug.LogWarning(message);
+        }
+    }
+
+    public static void LogError(object message)
+    {
+        if (isLoggingEnabled)
+        {
+            Debug.LogError(message);
+        }
+    }
+
+    public static void LogException(Exception exception)
+    {
+        if (isLoggingEnabled)
+        {
+            Debug.LogException(exception, null);
+        }
+    }
+    
+    public static void DrawRay(Vector3 start, Vector3 dir, Color color)
+    {
+        if (isLoggingEnabled)
+        {
+            Debug.DrawRay(start, dir, color);
+        }
+    }
+}
+#else
+// In builds, the CustomLogger class exists but all methods are effectively no-ops.
+// This prevents any potential compiler or runtime errors due to missing methods.
+public static class CustomLogger
+{
+    public static void Log(object message) { }
+
+    public static void LogWarning(object message) { }
+
+    public static void LogError(object message) { }
+
+    public static void LogException(Exception exception) { }
+
+    public static void DrawRay(Vector3 start, Vector3 dir, Color color) { }
+}
+#endif
+
+
 --- FILE: Utilities\GeneticUtility.cs ---
 using UnityEngine;
 
@@ -934,11 +1110,11 @@ public static class GeneticUtility
 
     public static AgentStats Inherit(AgentStats p1, AgentStats p2)
     {
+        float sRange = Mathf.Clamp(Blend(p1.sightRange, p2.sightRange), 0.5f, 3f);
         return new AgentStats(
             Blend(p1.speed, p2.speed),
             Blend(p1.maxSize, p2.maxSize),
-            Blend(p1.sightRange, p2.sightRange)
-        );
+            sRange);
     }
 }
 
@@ -1134,9 +1310,9 @@ public class Telemetry : Singleton<Telemetry>
     /* ---------- environment level ---------- */
     public int EpisodeIndex { get; private set; } = 0;
     double episodeStart = 0.0;
-    int    spawned      = 0;
-    int    dead         = 0;
-    float  rewardSum    = 0f;
+    int spawned = 0;
+    int dead = 0;
+    float rewardSum = 0f;
 
     public void OnEpisodeBegin()
     {
@@ -1146,18 +1322,22 @@ public class Telemetry : Singleton<Telemetry>
         rewardSum = 0;
     }
 
-    public void OnAgentSpawn()  => spawned++;
-    public void OnAgentDeath()  => dead++;
+    public void OnAgentSpawn() => spawned++;
+    public void OnAgentDeath() => dead++;
 
     public void AddReward(float r) => rewardSum += r;
 
     public void OnEpisodeEnd()
     {
         double end = Time.timeAsDouble;
-        writer.WriteLine($"{EpisodeIndex},{episodeStart:F2},{end:F2},{end-episodeStart:F2}," +
+        writer.WriteLine($"{EpisodeIndex},{episodeStart:F2},{end:F2},{end - episodeStart:F2}," +
                          $"{spawned},{dead},{rewardSum:F3}");
         writer.Flush();
     }
 
-    void OnDestroy() => writer?.Close();
+    protected override void OnDestroy()
+    {
+        base.OnDestroy();
+        writer?.Close();
+    }
 }

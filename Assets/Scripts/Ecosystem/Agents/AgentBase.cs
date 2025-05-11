@@ -18,9 +18,21 @@ public class AgentBase : Agent
         base.OnEnable();
         EcosystemManager.Instance.Register(this);
     }
+
     protected override void OnDisable()
     {
         base.OnDisable();
+        if (!Application.isPlaying || EcosystemManager.Instance == null)
+            return;
+
+        EcosystemManager.Instance.Unregister(this);
+    }
+
+    private void OnDestroy()
+    {
+        if (!Application.isPlaying || EcosystemManager.Instance == null)
+            return;
+
         EcosystemManager.Instance.Unregister(this);
     }
 
@@ -30,12 +42,22 @@ public class AgentBase : Agent
         animalBar = GetComponentInChildren<AnimalBar>();
     }
 
+    protected virtual void Start()
+    {
+        if (TryGetComponent<Unity.MLAgents.Policies.BehaviorParameters>(out var bp))
+        {
+            bp.BehaviorType = EcosystemManager.Instance.UseHeuristicControl
+                ? Unity.MLAgents.Policies.BehaviorType.HeuristicOnly
+                : Unity.MLAgents.Policies.BehaviorType.Default;
+        }
+    }
+
     public virtual void InitializeStats(AgentStats inherited = null)
     {
         stats = inherited ?? new AgentStats(
-                     Random.Range(2f, 4f),  // speed
+                     Random.Range(10f, 20f),  // speed
                      Random.Range(1.5f, 2.5f),  // maxSize
-                     Random.Range(0.8f, 1.2f)); // sightRange (keep in small bounds)
+                     Random.Range(0.8f, 1.5f)); // sightRange (keep in small bounds)
 
         maxSpeed = stats.speed;
         transform.localScale = Vector3.one * stats.CurrentSize;
@@ -61,17 +83,17 @@ public class AgentBase : Agent
 
         Vector3 moveDir = transform.TransformDirection(new Vector3(currentMove.x, 0, currentMove.y));
         Vector3 desiredXZ = (1f - brake) * maxSpeed * moveDir.normalized;
+        Vector3 prevVel = rb.velocity;
 
-        if (Physics.Raycast(transform.position, Vector3.down, 1.1f, LayerMask.GetMask("Ground")))
+        rb.velocity = new Vector3(desiredXZ.x, rb.velocity.y, desiredXZ.z); // ← keep vertical component
+        CustomLogger.Log($"MoveDir: {moveDir}, Brake: {brake}, MaxSpeed: {maxSpeed}, Velocity: {rb.velocity}, PreviousVelocity: {prevVel}");
+        if (moveDir != Vector3.zero)
         {
-            rb.velocity = new Vector3(desiredXZ.x, rb.velocity.y, desiredXZ.z); // ← keep vertical component
-
-            if (moveDir != Vector3.zero)
-            {
-                Quaternion targetRot = Quaternion.LookRotation(moveDir);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, 10f * Time.fixedDeltaTime);
-            }
+            Quaternion targetRot = Quaternion.LookRotation(moveDir);
+            float turnSpeed = 120f; // degrees per second — adjust to taste
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, turnSpeed * Time.fixedDeltaTime);
         }
+
 
         UpdateSize();
     }

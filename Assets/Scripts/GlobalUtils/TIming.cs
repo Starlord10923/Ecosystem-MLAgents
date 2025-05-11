@@ -283,10 +283,10 @@ namespace MEC
                     }
                     catch (System.Exception ex)
                     {
-                        Debug.LogException(ex);
+                        CustomLogger.LogException(ex);
 
                         if (ex is MissingReferenceException)
-                            Debug.LogError("This exception can probably be fixed by adding \"CancelWith(gameObject)\" when you run the coroutine.\n"
+                            CustomLogger.LogError("This exception can probably be fixed by adding \"CancelWith(gameObject)\" when you run the coroutine.\n"
                                 + "Example: Timing.RunCoroutine(_foo().CancelWith(gameObject), Segment.SlowUpdate);");
                     }
                 }
@@ -334,10 +334,10 @@ namespace MEC
                     }
                     catch (System.Exception ex)
                     {
-                        Debug.LogException(ex);
+                        CustomLogger.LogException(ex);
 
                         if (ex is MissingReferenceException)
-                            Debug.LogError("This exception can probably be fixed by adding \"CancelWith(gameObject)\" when you run the coroutine.\n"
+                            CustomLogger.LogError("This exception can probably be fixed by adding \"CancelWith(gameObject)\" when you run the coroutine.\n"
                                 + "Example: Timing.RunCoroutine(_foo().CancelWith(gameObject));");
                     }
                 }
@@ -407,10 +407,10 @@ namespace MEC
                     }
                     catch (System.Exception ex)
                     {
-                        Debug.LogException(ex);
+                        CustomLogger.LogException(ex);
 
                         if (ex is MissingReferenceException)
-                            Debug.LogError("This exception can probably be fixed by adding \"CancelWith(gameObject)\" when you run the coroutine.\n"
+                            CustomLogger.LogError("This exception can probably be fixed by adding \"CancelWith(gameObject)\" when you run the coroutine.\n"
                                 + "Example: Timing.RunCoroutine(_foo().CancelWith(gameObject), Segment.FixedUpdate);");
                     }
                 }
@@ -467,10 +467,10 @@ namespace MEC
                     }
                     catch (System.Exception ex)
                     {
-                        Debug.LogException(ex);
+                        CustomLogger.LogException(ex);
 
                         if (ex is MissingReferenceException)
-                            Debug.LogError("This exception can probably be fixed by adding \"CancelWith(gameObject)\" when you run the coroutine.\n"
+                            CustomLogger.LogError("This exception can probably be fixed by adding \"CancelWith(gameObject)\" when you run the coroutine.\n"
                                 + "Example: Timing.RunCoroutine(_foo().CancelWith(gameObject), Segment.LateUpdate);");
                     }
                 }

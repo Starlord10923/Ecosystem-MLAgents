@@ -22,7 +22,7 @@ public class ArenaSpawner : MonoBehaviour
     {
         if (arenaPrefabs == null || arenaPrefabs.Count == 0)
         {
-            Debug.LogError("ArenaSpawner: No arena prefabs assigned!");
+            CustomLogger.LogError("ArenaSpawner: No arena prefabs assigned!");
             return;
         }
 
@@ -53,7 +53,7 @@ public class ArenaSpawner : MonoBehaviour
             behaviorParams.BehaviorType = BehaviorType.InferenceOnly;
             behaviorParams.BehaviorName = brain.name;
             behaviorParams.Model = brain;
-            Debug.Log($"Set {behaviorParams.gameObject.name} to Inference using brain.");
+            CustomLogger.Log($"Set {behaviorParams.gameObject.name} to Inference using brain.");
         }
         else
         {

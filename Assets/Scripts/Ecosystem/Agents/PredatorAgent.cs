@@ -35,6 +35,7 @@ public class PredatorAgent : AgentAnimalBase
         continuous[1] = Input.GetAxis("Vertical");
 
         discrete[0] = Input.GetKey(KeyCode.Space) ? 1 : 0;
+        CustomLogger.Log($"Heuristic called : {continuous[0]},{continuous[1]},{discrete[0]}");
     }
 
     public override void Die()

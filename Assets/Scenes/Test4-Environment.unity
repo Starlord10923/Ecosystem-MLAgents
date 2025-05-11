@@ -294,13 +294,13 @@ MonoBehaviour:
   foodPrefabs:
   - {fileID: 6012799385712412350, guid: 944a56aeb747e7a41b3077592a37b153, type: 3}
   waterPrefab: {fileID: 3880577161776740337, guid: 70ac7b89ba9d03943be85d845a7e1e47, type: 3}
-  spawnRadius: 20
-  initialPrey: 10
-  initialPredators: 5
-  initialFood: 20
-  initialWater: 10
+  initialPrey: 2
+  initialPredators: 0
+  initialFood: 0
+  initialWater: 0
   spawnPrey: 1
   spawnPredators: 0
+  SpawnInIntervals: 0
   foodSpawnInterval: 10
   foodSpawnAmount: 5
   waterSpawnInterval: 12
@@ -520,6 +520,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Environment: {fileID: 2769830148051336634}
   bounds: {x: 90, y: 90}
+  UseHeuristicControl: 1
 --- !u!4 &1793235278
 Transform:
   m_ObjectHideFlags: 0

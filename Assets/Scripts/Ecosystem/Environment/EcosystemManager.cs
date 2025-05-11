@@ -5,9 +5,11 @@ public class EcosystemManager : Singleton<EcosystemManager>
 {
     public GameObject Environment;
     public Vector2 bounds = new(20, 20);
+    public bool UseHeuristicControl = true;  // Toggle globally in Inspector or via UI
 
     /* ─── Active-agent tracking ─── */
     private readonly HashSet<AgentBase> liveAgents = new();
+    private bool isResettingEnvironment = false;
 
     public void Register(AgentBase agent)
     {
@@ -18,12 +20,12 @@ public class EcosystemManager : Singleton<EcosystemManager>
         liveAgents.Remove(agent);
 
         // if everyone died, restart environment & episode
-        if (liveAgents.Count == 0)
+        if (liveAgents.Count == 0 && !isResettingEnvironment)
         {
             ResetEnvironment();
         }
     }
-
+    
     private void FixedUpdate()
     {
         // 1) record current population size
@@ -36,11 +38,35 @@ public class EcosystemManager : Singleton<EcosystemManager>
         Stats.RecordMeanAge(ageSum / liveAgents.Count);
     }
 
-    public Vector3 GetSpawnPosition()
+    public Vector3 GetSpawnPosition(int quadrant = 0)
     {
-        return Environment.transform.position + new Vector3(Random.Range(-bounds.x, bounds.x), 1f, Random.Range(-bounds.y, bounds.y));
+        Vector3 center = Environment.transform.position;   // origin of the whole map
+
+        float halfX = bounds.x;    // positive half-extent in X
+        float halfZ = bounds.y;    // positive half-extent in Z
+        CustomLogger.Log(quadrant);
+
+        float x = quadrant switch
+        {
+            1 => Random.Range(0f, halfX),   // +x
+            2 => Random.Range(-halfX, 0f),    // –x
+            3 => Random.Range(-halfX, 0f),    // –x
+            4 => Random.Range(0f, halfX),   // +x
+            _ => Random.Range(-halfX, halfX)  // any
+        };
+
+        float z = quadrant switch
+        {
+            1 => Random.Range(0f, halfZ),   // +z
+            2 => Random.Range(0f, halfZ),   // +z
+            3 => Random.Range(-halfZ, 0f),    // –z
+            4 => Random.Range(-halfZ, 0f),    // –z
+            _ => Random.Range(-halfZ, halfZ)  // any
+        };
+
+        return center + new Vector3(x, 1f, z);
     }
-    
+
     public void SpawnAnimal(AgentAnimalBase parent, AgentStats childStats, Vector3 spawnPos)
     {
         GameObject animalPrefab = parent is PreyAgent ? SpawnerManager.Instance.preyPrefabs[0] : SpawnerManager.Instance.predatorPrefabs[0];
@@ -56,22 +82,24 @@ public class EcosystemManager : Singleton<EcosystemManager>
     /* ─── world reset ─── */
     public void ResetEnvironment()
     {
-        // Destroy every resource & animal still present
+        if (isResettingEnvironment || SpawnerManager.Instance == null || Telemetry.Instance == null)
+            return;
+
+        isResettingEnvironment = true;
+
         Telemetry.Instance.OnEpisodeEnd();
+
         foreach (var animal in FindObjectsByType<AgentAnimalBase>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID))
-        {
             Destroy(animal.gameObject);
-        }
+
         foreach (var consumable in FindObjectsByType<SustainedConsumable>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID))
-        {
             Destroy(consumable.gameObject);
-        }
 
-        // Let a SpawnerManager rebuild the scene
         SpawnerManager.Instance.Reinitialise();
-
         liveAgents.Clear();
-        Telemetry.Instance.OnEpisodeBegin();   // after re-spawn
+
+        Telemetry.Instance.OnEpisodeBegin();
+        isResettingEnvironment = false;
     }
 
     /* convenience remove wrapper */
@@ -84,6 +112,34 @@ public class EcosystemManager : Singleton<EcosystemManager>
         Vector3 center = transform.position;
         Vector3 size = new(bounds.x * 2, 1f, bounds.y * 2); // y=1 for a flat cube
         Gizmos.DrawWireCube(center, size);
+
+        // Draw quadrant lines
+        Vector3 xStart = center + new Vector3(-bounds.x, 0, 0);
+        Vector3 xEnd = center + new Vector3(bounds.x, 0, 0);
+        Vector3 zStart = center + new Vector3(0, 0, -bounds.y);
+        Vector3 zEnd = center + new Vector3(0, 0, bounds.y);
+        Gizmos.DrawLine(xStart, xEnd);
+        Gizmos.DrawLine(zStart, zEnd);
+
+        // Define quadrant centers
+        Vector3 q1 = center + new Vector3(bounds.x / 2, 0, bounds.y / 2);
+        Vector3 q2 = center + new Vector3(-bounds.x / 2, 0, bounds.y / 2);
+        Vector3 q3 = center + new Vector3(-bounds.x / 2, 0, -bounds.y / 2);
+        Vector3 q4 = center + new Vector3(bounds.x / 2, 0, -bounds.y / 2);
+
+        // Draw labels
+        UnityEditor.Handles.color = Color.white;
+        var labelStyle = new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            normal = { textColor = Color.white }
+        };
+
+        // Draw quadrant labels
+        UnityEditor.Handles.Label(q1 + Vector3.up * 2f, "Quadrant 1\nPrey", labelStyle);
+        UnityEditor.Handles.Label(q2 + Vector3.up * 2f, "Quadrant 2", labelStyle);
+        UnityEditor.Handles.Label(q3 + Vector3.up * 2f, "Quadrant 3\nPredator", labelStyle);
+        UnityEditor.Handles.Label(q4 + Vector3.up * 2f, "Quadrant 4", labelStyle);
     }
 #endif
 }
