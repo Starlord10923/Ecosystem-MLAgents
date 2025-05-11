@@ -7,7 +7,7 @@ public static class RewardUtility
     public static void AddNutritionReward(Agent agent, float amount)
     {
         float scaled = 0.2f * amount / 0.1f;
-        EcosystemManager.Instance.totalRewardGiven += scaled;
+        EcosystemManager.Instance.CumulativeData.totalRewardGiven += scaled;
         agent.AddReward(scaled);
     }
 
@@ -15,7 +15,7 @@ public static class RewardUtility
     public static void AddWaterReward(Agent agent, float amount)
     {
         float scaled = 0.2f * amount / 0.1f;
-        EcosystemManager.Instance.totalRewardGiven += scaled;
+        EcosystemManager.Instance.CumulativeData.totalRewardGiven += scaled;
         agent.AddReward(scaled);
     }
 
@@ -23,22 +23,22 @@ public static class RewardUtility
     public static void AddPredationReward(Agent agent, float amount)
     {
         float scaled = 3.0f * amount / 0.6f;
-        EcosystemManager.Instance.totalRewardGiven += scaled;
+        EcosystemManager.Instance.CumulativeData.totalRewardGiven += scaled;
         agent.AddReward(scaled);
     }
 
     /// <summary>Reward for Mating. Baseline: +0.2 for delta.</summary>
     public static void AddMatingReward(Agent agent, float amount = 0.15f)
     {
-        EcosystemManager.Instance.totalRewardGiven += amount;
-        EcosystemManager.Instance.partialMatingReward += amount;
+        EcosystemManager.Instance.CumulativeData.totalRewardGiven += amount;
+        EcosystemManager.Instance.CumulativeData.partialMatingReward += amount;
         agent.AddReward(amount);
     }
     /// <summary>Reward for Mating. Baseline: +5 for success.</summary>
     public static void AddMatingSuccessReward(Agent agent, float amount = 5f)
     {
-        EcosystemManager.Instance.totalRewardGiven += amount;
-        EcosystemManager.Instance.totalMating++;
+        EcosystemManager.Instance.CumulativeData.totalRewardGiven += amount;
+        EcosystemManager.Instance.CumulativeData.totalMating++;
         agent.AddReward(amount);
     }
 
@@ -51,7 +51,7 @@ public static class RewardUtility
             float reward = (hunger - 0.7f) + (thirst - 0.7f); // max theoretical: (1.0 - 0.7) * 2 = 0.6
             float scaledReward = Mathf.Clamp(reward, 0f, 0.1f) * Time.fixedDeltaTime;
 
-            EcosystemManager.Instance.totalRewardGiven += scaledReward;
+            EcosystemManager.Instance.CumulativeData.totalRewardGiven += scaledReward;
             agent.AddReward(scaledReward);
         }
         // --- Penalty Case: undernourished or dehydrated ---
@@ -60,29 +60,29 @@ public static class RewardUtility
             float penalty = ComputePenalty(hunger) + ComputePenalty(thirst);  // max ~ -0.2
             float scaledPenalty = Mathf.Clamp(penalty, -0.1f, 0f) * Time.fixedDeltaTime;
 
-            EcosystemManager.Instance.totalPenaltyGiven += Mathf.Abs(scaledPenalty);
+            EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += Mathf.Abs(scaledPenalty);
             agent.AddReward(scaledPenalty);
         }
     }
 
     public static void AddDeathPenalty(Agent agent)
     {
-        EcosystemManager.Instance.totalPenaltyGiven += 1f;
+        EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += 1f;
         agent.AddReward(-1f);
     }
 
     public static void AddCrowdedPenalty(Agent agent, int count)
     {
         float penalty = Mathf.Clamp01(count / 6f) * 0.05f;  // caps at -0.05
-        EcosystemManager.Instance.totalPenaltyGiven += penalty;
-        EcosystemManager.Instance.crowdingPenalty += penalty;
+        EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += penalty;
+        EcosystemManager.Instance.CumulativeData.crowdingPenalty += penalty;
         agent.AddReward(-penalty);
     }
 
     /// <summary>Flat death penalty. Called once on death.</summary>
     public static void AddWallHitPenalty(Agent agent)
     {
-        EcosystemManager.Instance.totalPenaltyGiven += 0.5f;
+        EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += 0.5f;
         agent.AddReward(-0.5f);
     }
 

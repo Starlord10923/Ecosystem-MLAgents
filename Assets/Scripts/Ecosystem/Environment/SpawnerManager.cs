@@ -64,9 +64,6 @@ public class SpawnerManager : Singleton<SpawnerManager>
             foodSpawnHandle = Timing.RunCoroutine(SpawnFoodRoutine());
             waterSpawnHandle = Timing.RunCoroutine(SpawnWaterRoutine());
         }
-
-        if (Telemetry.Instance && Telemetry.Instance.EpisodeIndex == 0)
-                Telemetry.Instance.OnEpisodeBegin();              // ✱ first launch
     }
 
     [ContextMenu("Spawn Prey")]

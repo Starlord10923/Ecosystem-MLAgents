@@ -69,11 +69,11 @@ public class AgentBase : Agent
         if (!stats.IsAlive)
         {
             if (stats.LivedFullLife)
-                EcosystemManager.Instance.reachedLifeEnd += 1;
+                EcosystemManager.Instance.CumulativeData.reachedLifeEnd += 1;
             if(stats.hunger<=0f)
-                EcosystemManager.Instance.diedFromHunger += 1;
+                EcosystemManager.Instance.CumulativeData.diedFromHunger += 1;
             if(stats.thirst<=0f)
-                EcosystemManager.Instance.diedFromThirst += 1;
+                EcosystemManager.Instance.CumulativeData.diedFromThirst += 1;
             Die();
             return;
         }
@@ -103,7 +103,5 @@ public class AgentBase : Agent
     public virtual void Die()
     {
         // Debug.Log($"Animal is Dead : {gameObject.name}");
-        Telemetry.Instance.OnAgentDeath();
-        Telemetry.Instance.AddReward(GetCumulativeReward());
     }
 }

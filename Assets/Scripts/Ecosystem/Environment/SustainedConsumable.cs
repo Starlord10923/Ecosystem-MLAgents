@@ -84,13 +84,13 @@ public class SustainedConsumable : MonoBehaviour
             switch (consumableType)
             {
                 case Type.Food:
-                    EcosystemManager.Instance.foodConsumed += 1;
+                    EcosystemManager.Instance.CumulativeData.foodConsumed += 1;
                     break;
                 case Type.Water:
-                    EcosystemManager.Instance.waterConsumed += 1;
+                    EcosystemManager.Instance.CumulativeData.waterConsumed += 1;
                     break;
                 case Type.Prey:
-                    EcosystemManager.Instance.animalKilled += 1;
+                    EcosystemManager.Instance.CumulativeData.animalKilled += 1;
                     break;
             }
         }

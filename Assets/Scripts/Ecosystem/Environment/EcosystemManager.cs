@@ -12,45 +12,28 @@ public class EcosystemManager : Singleton<EcosystemManager>
     private readonly HashSet<AgentBase> liveAgents = new();
     private bool isResettingEnvironment = false;
 
-    // EcosystemManager.cs (inside EcosystemManager class)
-
     [Header("Ecosystem Metrics")]
-    public int totalEpisodes = 0;
-    public float totalRewardGiven = 0f;
-    public float totalPenaltyGiven = 0f;
-    public float crowdingPenalty = 0f;
-    public int totalPreySpawned = 0;
-    public int totalPredatorsSpawned = 0;
-    public int currentPreyCount = 0;
-    public int currentPredatorCount = 0;
-    public int foodConsumed = 0;
-    public int waterConsumed = 0;
-    public int totalMating = 0;
-    public float partialMatingReward = 0f;
-    public int animalKilled = 0;
-    public int reachedLifeEnd = 0;
-    public int diedFromHunger = 0;
-    public int diedFromThirst = 0;
+    public EpisodeMetrics CumulativeData = new();
 
     public void Register(AgentBase agent)
     {
         liveAgents.Add(agent);
         if (agent is PreyAgent)
         {
-            currentPreyCount += 1;
-            totalPreySpawned += 1;
+            CumulativeData.currentPreyCount += 1;
+            CumulativeData.totalPreySpawned += 1;
         }
         else
         {
-            currentPredatorCount += 1;
-            totalPredatorsSpawned += 1;
+            CumulativeData.currentPredatorCount += 1;
+            CumulativeData.totalPredatorsSpawned += 1;
         }
     }
     public void Unregister(AgentBase agent)
     {
         liveAgents.Remove(agent);
-        if (agent is PreyAgent) currentPreyCount -= 1;
-        else currentPredatorCount -= 1;
+        if (agent is PreyAgent) CumulativeData.currentPreyCount -= 1;
+        else CumulativeData.currentPredatorCount -= 1;
 
         // if everyone died, restart environment & episode
         if (liveAgents.Count == 0 && !isResettingEnvironment)
@@ -118,7 +101,6 @@ public class EcosystemManager : Singleton<EcosystemManager>
         {
             agentBase.InitializeStats(AgentStats.Clone(childStats));   // newborn stats
         }
-        Telemetry.Instance.OnAgentSpawn();
     }
 
     /* ─── world reset ─── */
@@ -128,7 +110,7 @@ public class EcosystemManager : Singleton<EcosystemManager>
             return;
 
         isResettingEnvironment = true;
-        totalEpisodes += 1;
+        CumulativeData.totalEpisodes += 1;
 
         Telemetry.Instance.OnEpisodeEnd(this);
 
@@ -144,7 +126,6 @@ public class EcosystemManager : Singleton<EcosystemManager>
         liveAgents.Clear(); // explicit clear, no need to re-unregister on destroy
 
         SpawnerManager.Instance.Reinitialise();
-        Telemetry.Instance.OnEpisodeBegin();
 
         isResettingEnvironment = false;
     }
@@ -189,4 +170,54 @@ public class EcosystemManager : Singleton<EcosystemManager>
         UnityEditor.Handles.Label(q4 + Vector3.up * 2f, "Quadrant 4", labelStyle);
     }
 #endif
+}
+
+
+[System.Serializable]
+public class EpisodeMetrics
+{
+    [Header("Global Episode Tracking")]
+    public int totalEpisodes = 0;
+
+    [Header("Reward & Penalty Stats")]
+    public float totalRewardGiven = 0f;
+    public float totalPenaltyGiven = 0f;
+    public float crowdingPenalty = 0f;
+
+    [Header("Population Metrics")]
+    public int totalPreySpawned = 0;
+    public int totalPredatorsSpawned = 0;
+    public int currentPreyCount = 0;
+    public int currentPredatorCount = 0;
+
+    [Header("Resource Consumption")]
+    public int foodConsumed = 0;
+    public int waterConsumed = 0;
+
+    [Header("Reproduction Metrics")]
+    public int totalMating = 0;
+    public float partialMatingReward = 0f;
+
+    [Header("Mortality Stats")]
+    public int animalKilled = 0;
+    public int reachedLifeEnd = 0;
+    public int diedFromHunger = 0;
+    public int diedFromThirst = 0;
+
+    public EpisodeMetrics ShallowCopy() => (EpisodeMetrics)this.MemberwiseClone();
+
+    public void ResetEpisodeOnly()
+    {
+        foodConsumed = 0;
+        waterConsumed = 0;
+        totalMating = 0;
+        partialMatingReward = 0f;
+
+        animalKilled = 0;
+        reachedLifeEnd = 0;
+        diedFromHunger = 0;
+        diedFromThirst = 0;
+
+        crowdingPenalty = 0f;
+    }
 }

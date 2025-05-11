@@ -150,7 +150,7 @@ public abstract class AgentAnimalBase : AgentBase
         // Create inherited child
         AgentStats childStats = GeneticUtility.Inherit(stats, partner.stats);
         Vector3 spawnPos = (transform.position + partner.transform.position) / 2f;
-        EcosystemManager.Instance.SpawnAnimal(this, childStats, spawnPos);
+        EcosystemManager.Instance.CumulativeData.SpawnAnimal(this, childStats, spawnPos);
 
         RewardUtility.AddMatingSuccessReward(this);
     }
@@ -217,7 +217,7 @@ public class AgentBase : Agent
     protected override void OnEnable()
     {
         base.OnEnable();
-        EcosystemManager.Instance.Register(this);
+        EcosystemManager.Instance.CumulativeData.Register(this);
     }
 
     private void OnDestroy()
@@ -225,7 +225,7 @@ public class AgentBase : Agent
         if (!Application.isPlaying || EcosystemManager.Instance == null)
             return;
 
-        EcosystemManager.Instance.Unregister(this);
+        EcosystemManager.Instance.CumulativeData.Unregister(this);
     }
 
     protected virtual void Awake()
@@ -238,7 +238,7 @@ public class AgentBase : Agent
     {
         if (TryGetComponent<Unity.MLAgents.Policies.BehaviorParameters>(out var bp))
         {
-            bp.BehaviorType = EcosystemManager.Instance.UseHeuristicControl
+            bp.BehaviorType = EcosystemManager.Instance.CumulativeData.UseHeuristicControl
                 ? Unity.MLAgents.Policies.BehaviorType.HeuristicOnly
                 : Unity.MLAgents.Policies.BehaviorType.Default;
         }
@@ -441,7 +441,7 @@ public class PredatorAgent : AgentAnimalBase
     public override void OnEpisodeBegin()
     {
         InitializeStats();
-        transform.position = EcosystemManager.Instance.GetSpawnPosition();
+        transform.position = EcosystemManager.Instance.CumulativeData.GetSpawnPosition();
         rb.velocity = Vector3.zero;
     }
 
@@ -476,7 +476,7 @@ public class PredatorAgent : AgentAnimalBase
     public override void Die()
     {
         base.Die();
-        EcosystemManager.Instance.Remove(gameObject);
+        EcosystemManager.Instance.CumulativeData.Remove(gameObject);
         EndEpisode();
     }
 }
@@ -543,7 +543,7 @@ public class PreyAgent : AgentAnimalBase
     public override void Die()
     {
         base.Die();
-        EcosystemManager.Instance.Remove(gameObject);
+        EcosystemManager.Instance.CumulativeData.Remove(gameObject);
         EndEpisode();
     }
 }
@@ -571,7 +571,7 @@ public class AnimalBar : MonoBehaviour
 
     private void Start()
     {
-        if (!EcosystemManager.Instance.showValues) gameObject.SetActive(false);
+        if (!EcosystemManager.Instance.CumulativeData.showValues) gameObject.SetActive(false);
     }
 
     private void Update()
@@ -769,7 +769,7 @@ public class ResourceBar : MonoBehaviour
 
     private void Start()
     {
-        if (!EcosystemManager.Instance.showValues) gameObject.SetActive(false);
+        if (!EcosystemManager.Instance.CumulativeData.showValues) gameObject.SetActive(false);
     }
 
     private void Update()
@@ -947,7 +947,7 @@ public class SpawnerManager : Singleton<SpawnerManager>
 
         for (int attempt = 0; attempt < maxSpawnAttempts; attempt++)
         {
-            Vector3 pos = EcosystemManager.Instance.GetSpawnPosition(quadrant);
+            Vector3 pos = EcosystemManager.Instance.CumulativeData.GetSpawnPosition(quadrant);
             pos.y = prefab.transform.localScale.y;
 
             int hitCount = Physics.OverlapSphereNonAlloc(
