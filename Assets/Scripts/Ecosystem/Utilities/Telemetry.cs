@@ -3,8 +3,10 @@ using UnityEngine;
 
 public class Telemetry : Singleton<Telemetry>
 {
-    string csvPath;
-    StreamWriter writer;
+    private string csvPath;
+    private StreamWriter writer;
+    private EpisodeMetrics lastRecordedData;
+    private double episodeStartTime = 0.0;
 
     protected override void Awake()
     {
@@ -14,9 +16,9 @@ public class Telemetry : Singleton<Telemetry>
         if (!Directory.Exists(telemetryDir))
             Directory.CreateDirectory(telemetryDir);
 
-        csvPath = Path.Combine(telemetryDir, $"ecosim_{System.DateTime.Now:yyyyMMdd_HHmmss}.csv");
-
+        csvPath = Path.Combine(telemetryDir, $"eco-log-{System.DateTime.Now:yyyyMMdd_HHmm}.csv");
         writer = new StreamWriter(csvPath);
+
         writer.WriteLine("episode,startTime,endTime,aliveTime," +
                          "totalRewardGiven,totalPenaltyGiven,crowdingPenalty," +
                          "totalPreySpawned,totalPredatorsSpawned," +
@@ -27,18 +29,54 @@ public class Telemetry : Singleton<Telemetry>
         Debug.Log($"[Telemetry] Logging to: {csvPath}");
     }
 
-    public void OnEpisodeEnd(EcosystemManager eco)
+    public void OnEpisodeStart()
     {
-        var data = eco.CumulativeData;
+        episodeStartTime = Time.timeAsDouble;
+    }
+
+    public void OnEpisodeEnd(EpisodeMetrics snapshot)
+    {
         double end = Time.timeAsDouble;
 
-        writer.WriteLine($"{data.totalEpisodes},{(eco.enabled ? 0.0 : 0.0)},{end:F2},{end:F2}," +
-                         $"{data.totalRewardGiven:F3},{data.totalPenaltyGiven:F3},{data.crowdingPenalty:F3}," +
-                         $"{data.totalPreySpawned},{data.totalPredatorsSpawned}," +
-                         $"{data.foodConsumed},{data.waterConsumed}," +
-                         $"{data.totalMating},{data.partialMatingReward:F3}," +
-                         $"{data.animalKilled},{data.reachedLifeEnd},{data.diedFromHunger},{data.diedFromThirst}");
+        // First episode → log raw snapshot
+        if (lastRecordedData == null)
+        {
+            lastRecordedData = snapshot.Clone();
+            writer.WriteLine($"{snapshot.totalEpisodes},{episodeStartTime},{end:F2},{end - episodeStartTime:F2}," +
+                             $"{snapshot.totalRewardGiven:F3}," +
+                             $"{snapshot.totalPenaltyGiven:F3}," +
+                             $"{snapshot.crowdingPenalty:F3}," +
+                             $"{snapshot.totalPreySpawned}," +
+                             $"{snapshot.totalPredatorsSpawned}," +
+                             $"{snapshot.foodConsumed}," +
+                             $"{snapshot.waterConsumed}," +
+                             $"{snapshot.totalMating}," +
+                             $"{snapshot.partialMatingReward:F3}," +
+                             $"{snapshot.animalKilled}," +
+                             $"{snapshot.reachedLifeEnd}," +
+                             $"{snapshot.diedFromHunger}," +
+                             $"{snapshot.diedFromThirst}");
+        }
+        else
+        {
+            double aliveTime = end - episodeStartTime;
+            writer.WriteLine($"{snapshot.totalEpisodes},{episodeStartTime:F2},{end:F2},{aliveTime:F2}," +
+                             $"{(snapshot.totalRewardGiven - lastRecordedData.totalRewardGiven):F3}," +
+                             $"{(snapshot.totalPenaltyGiven - lastRecordedData.totalPenaltyGiven):F3}," +
+                             $"{(snapshot.crowdingPenalty - lastRecordedData.crowdingPenalty):F3}," +
+                             $"{snapshot.totalPreySpawned - lastRecordedData.totalPreySpawned}," +
+                             $"{snapshot.totalPredatorsSpawned - lastRecordedData.totalPredatorsSpawned}," +
+                             $"{snapshot.foodConsumed - lastRecordedData.foodConsumed}," +
+                             $"{snapshot.waterConsumed - lastRecordedData.waterConsumed}," +
+                             $"{snapshot.totalMating - lastRecordedData.totalMating}," +
+                             $"{(snapshot.partialMatingReward - lastRecordedData.partialMatingReward):F3}," +
+                             $"{snapshot.animalKilled - lastRecordedData.animalKilled}," +
+                             $"{snapshot.reachedLifeEnd - lastRecordedData.reachedLifeEnd}," +
+                             $"{snapshot.diedFromHunger - lastRecordedData.diedFromHunger}," +
+                             $"{snapshot.diedFromThirst - lastRecordedData.diedFromThirst}");
+        }
 
+        lastRecordedData = snapshot.Clone(); // move reference forward
         writer.Flush();
     }
 
@@ -46,5 +84,10 @@ public class Telemetry : Singleton<Telemetry>
     {
         base.OnDestroy();
         writer?.Close();
+    }
+
+    public EpisodeMetrics GetLastSnapshot()
+    {
+        return lastRecordedData;
     }
 }

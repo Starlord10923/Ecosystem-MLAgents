@@ -25,6 +25,11 @@ public class SustainedConsumable : MonoBehaviour
         InitializeValues();
         resourceBar = GetComponentInChildren<ResourceBar>();
         resourceBar.SetConsumable(this);
+
+        if (consumableType == Type.Food)
+            SpawnerManager.Instance.OnFoodSpawned();
+        else if (consumableType == Type.Water)
+            SpawnerManager.Instance.OnWaterSpawned();
     }
 
     public void InitializeValues()
@@ -85,15 +90,18 @@ public class SustainedConsumable : MonoBehaviour
             {
                 case Type.Food:
                     EcosystemManager.Instance.CumulativeData.foodConsumed += 1;
+                    SpawnerManager.Instance.OnFoodConsumed();
                     break;
                 case Type.Water:
                     EcosystemManager.Instance.CumulativeData.waterConsumed += 1;
+                    SpawnerManager.Instance.OnWaterConsumed();
                     break;
                 case Type.Prey:
                     EcosystemManager.Instance.CumulativeData.animalKilled += 1;
                     break;
             }
         }
+
         return consumed;
     }
 }

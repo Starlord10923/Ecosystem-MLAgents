@@ -94,9 +94,13 @@ public class EcosystemManager : Singleton<EcosystemManager>
 
     public void SpawnAnimal(AgentAnimalBase parent, AgentStats childStats, Vector3 spawnPos)
     {
-        GameObject animalPrefab = parent is PreyAgent ? SpawnerManager.Instance.preyPrefabs[0] : SpawnerManager.Instance.predatorPrefabs[0];
+        var isPrey = parent.animalType == AgentAnimalBase.AnimalType.Prey;
+        var prefabList = isPrey ? SpawnerManager.Instance.preyPrefabs : SpawnerManager.Instance.predatorPrefabs;
+        var parentTransform = isPrey ? SpawnerManager.Instance.PreyParent.transform : SpawnerManager.Instance.PredatorParent.transform;
 
-        GameObject child = Instantiate(animalPrefab, spawnPos, Quaternion.identity);
+        if (prefabList.Count == 0) return;
+
+        var child = Instantiate(prefabList[0], spawnPos, Quaternion.identity, parentTransform);
         if (child.TryGetComponent(out AgentBase agentBase))
         {
             agentBase.InitializeStats(AgentStats.Clone(childStats));   // newborn stats
@@ -112,7 +116,7 @@ public class EcosystemManager : Singleton<EcosystemManager>
         isResettingEnvironment = true;
         CumulativeData.totalEpisodes += 1;
 
-        Telemetry.Instance.OnEpisodeEnd(this);
+        Telemetry.Instance.OnEpisodeEnd(CumulativeData);
 
         // Cache to avoid modifying collection during iteration
         var allAnimals = new List<AgentAnimalBase>(FindObjectsByType<AgentAnimalBase>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID));
@@ -204,20 +208,5 @@ public class EpisodeMetrics
     public int diedFromHunger = 0;
     public int diedFromThirst = 0;
 
-    public EpisodeMetrics ShallowCopy() => (EpisodeMetrics)this.MemberwiseClone();
-
-    public void ResetEpisodeOnly()
-    {
-        foodConsumed = 0;
-        waterConsumed = 0;
-        totalMating = 0;
-        partialMatingReward = 0f;
-
-        animalKilled = 0;
-        reachedLifeEnd = 0;
-        diedFromHunger = 0;
-        diedFromThirst = 0;
-
-        crowdingPenalty = 0f;
-    }
+    public EpisodeMetrics Clone() => (EpisodeMetrics)MemberwiseClone();
 }

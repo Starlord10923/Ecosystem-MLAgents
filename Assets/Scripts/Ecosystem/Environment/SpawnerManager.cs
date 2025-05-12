@@ -36,13 +36,24 @@ public class SpawnerManager : Singleton<SpawnerManager>
     public LayerMask obstacleMask;
     public TagMask blockingTags;
 
-    GameObject PreyParent;
-    GameObject PredatorParent;
-    GameObject FoodParent;
-    GameObject WaterParent;
+    [Header("Holders")]
+    public GameObject PreyParent;
+    public GameObject PredatorParent;
+    public GameObject FoodParent;
+    public GameObject WaterParent;
 
     CoroutineHandle foodSpawnHandle;
     CoroutineHandle waterSpawnHandle;
+
+    private int activeFood = 0;
+    private int activeWater = 0;
+    public void OnFoodSpawned() => activeFood++;
+    public void OnWaterSpawned() => activeWater++;
+    public void OnFoodConsumed() => activeFood--;
+    public void OnWaterConsumed() => activeWater--;
+    [Header("Dynamic Spawn Balancing")]
+    public float targetFoodPerPrey = 1.5f;
+    public float targetWaterPerPrey = 0.8f;
 
     void Start()
     {
@@ -50,6 +61,9 @@ public class SpawnerManager : Singleton<SpawnerManager>
         PredatorParent = new GameObject($"Spawned-Predator");
         FoodParent = new GameObject($"Spawned-Food");
         WaterParent = new GameObject($"Spawned-Water");
+
+        activeFood = 0;
+        activeWater = 0;
 
         if (spawnPrey)
             Spawn(preyPrefabs, initialPrey, SpawnType.Prey);
@@ -64,6 +78,8 @@ public class SpawnerManager : Singleton<SpawnerManager>
             foodSpawnHandle = Timing.RunCoroutine(SpawnFoodRoutine());
             waterSpawnHandle = Timing.RunCoroutine(SpawnWaterRoutine());
         }
+
+        Telemetry.Instance.OnEpisodeStart();
     }
 
     [ContextMenu("Spawn Prey")]
@@ -111,19 +127,49 @@ public class SpawnerManager : Singleton<SpawnerManager>
 
     private IEnumerator<float> SpawnFoodRoutine()
     {
+        float checkInterval = 2f;
+        float elapsed = 0f;
+
         while (true)
         {
-            yield return Timing.WaitForSeconds(foodSpawnInterval);
-            Spawn(foodPrefabs, foodSpawnAmount, SpawnType.Food);
+            yield return Timing.WaitForSeconds(Mathf.Min(checkInterval, foodSpawnInterval - elapsed));
+            elapsed += checkInterval;
+
+            int preyCount = EcosystemManager.Instance.CumulativeData.currentPreyCount;
+            int target = Mathf.CeilToInt(preyCount * targetFoodPerPrey);
+
+            if (activeFood < target)
+            {
+                int toSpawn = Mathf.Max(foodSpawnAmount, target - activeFood);
+                Spawn(foodPrefabs, toSpawn, SpawnType.Food);
+            }
+
+            if (elapsed >= foodSpawnInterval)
+                elapsed = 0f;
         }
     }
 
     private IEnumerator<float> SpawnWaterRoutine()
     {
+        float checkInterval = 2f;
+        float elapsed = 0f;
+
         while (true)
         {
-            yield return Timing.WaitForSeconds(waterSpawnInterval);
-            Spawn(waterPrefab, waterSpawnAmount, SpawnType.Water);
+            yield return Timing.WaitForSeconds(Mathf.Min(checkInterval, waterSpawnInterval - elapsed));
+            elapsed += checkInterval;
+
+            int preyCount = EcosystemManager.Instance.CumulativeData.currentPreyCount;
+            int target = Mathf.CeilToInt(preyCount * targetWaterPerPrey);
+
+            if (activeWater < target)
+            {
+                int toSpawn = Mathf.Max(waterSpawnAmount, target - activeWater);
+                Spawn(waterPrefab, toSpawn, SpawnType.Water);
+            }
+
+            if (elapsed >= waterSpawnInterval)
+                elapsed = 0f;
         }
     }
 
