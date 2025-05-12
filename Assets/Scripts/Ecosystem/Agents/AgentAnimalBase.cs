@@ -157,6 +157,9 @@ public abstract class AgentAnimalBase : AgentBase
     static readonly Collider[] probeHits = new Collider[8];   // tweak size as needed
     public void PenalizeCrowding()
     {
+        // No penalty for crowding if it can mate
+        if (stats.CanMate) return;
+
         int hitCount = Physics.OverlapSphereNonAlloc(transform.position, 2f, probeHits);
         int nearbyPrey = 0;
         for (int i = 0; i < hitCount; i++)

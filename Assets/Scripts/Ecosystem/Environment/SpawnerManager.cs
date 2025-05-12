@@ -45,8 +45,8 @@ public class SpawnerManager : Singleton<SpawnerManager>
     CoroutineHandle foodSpawnHandle;
     CoroutineHandle waterSpawnHandle;
 
-    private int activeFood = 0;
-    private int activeWater = 0;
+    public int activeFood = 0;
+    public int activeWater = 0;
     public void OnFoodSpawned() => activeFood++;
     public void OnWaterSpawned() => activeWater++;
     public void OnFoodConsumed() => activeFood--;

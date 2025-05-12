@@ -313,6 +313,14 @@ MonoBehaviour:
     m_Bits: 1
   blockingTags:
     mask: 1536
+  PreyParent: {fileID: 0}
+  PredatorParent: {fileID: 0}
+  FoodParent: {fileID: 0}
+  WaterParent: {fileID: 0}
+  activeFood: 0
+  activeWater: 0
+  targetFoodPerPrey: 1.5
+  targetWaterPerPrey: 0.8
 --- !u!4 &482439398
 Transform:
   m_ObjectHideFlags: 0
@@ -522,23 +530,27 @@ MonoBehaviour:
   Environment: {fileID: 2769830148051336634}
   bounds: {x: 45, y: 45}
   UseHeuristicControl: 0
+  UseBrain: 1
+  PreyBrain: {fileID: 5022602860645237092, guid: 7104b558c54528c44895315864b4b8e2, type: 3}
+  PredatorBrain: {fileID: 0}
   showValues: 0
-  totalEpisodes: 0
-  totalRewardGiven: 0
-  totalPenaltyGiven: 0
-  crowdingPenalty: 0
-  totalPreySpawned: 0
-  totalPredatorsSpawned: 0
-  currentPreyCount: 0
-  currentPredatorCount: 0
-  foodConsumed: 0
-  waterConsumed: 0
-  totalMating: 0
-  partialMatingReward: 0
-  animalKilled: 0
-  reachedLifeEnd: 0
-  diedFromHunger: 0
-  diedFromThirst: 0
+  CumulativeData:
+    totalEpisodes: 0
+    totalRewardGiven: 0
+    totalPenaltyGiven: 0
+    crowdingPenalty: 0
+    totalPreySpawned: 0
+    totalPredatorsSpawned: 0
+    currentPreyCount: 0
+    currentPredatorCount: 0
+    foodConsumed: 0
+    waterConsumed: 0
+    totalMating: 0
+    partialMatingReward: 0
+    animalKilled: 0
+    reachedLifeEnd: 0
+    diedFromHunger: 0
+    diedFromThirst: 0
 --- !u!4 &1793235278
 Transform:
   m_ObjectHideFlags: 0

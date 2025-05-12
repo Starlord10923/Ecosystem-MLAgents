@@ -8,15 +8,16 @@ public class Telemetry : Singleton<Telemetry>
     private EpisodeMetrics lastRecordedData;
     private double episodeStartTime = 0.0;
 
-    protected override void Awake()
+    private void Start()
     {
-        base.Awake();
-
         string telemetryDir = Path.Combine(Application.dataPath, "Telemetry");
         if (!Directory.Exists(telemetryDir))
             Directory.CreateDirectory(telemetryDir);
+        string environmentDir = Path.Combine(telemetryDir, EcosystemManager.Instance.Environment.name);
+        if (!Directory.Exists(environmentDir))
+            Directory.CreateDirectory(environmentDir);
 
-        csvPath = Path.Combine(telemetryDir, $"eco-log-{System.DateTime.Now:yyyyMMdd_HHmm}.csv");
+        csvPath = Path.Combine(environmentDir, $"eco-log-{System.DateTime.Now:yyyyMMdd_HHmm}.csv");
         writer = new StreamWriter(csvPath);
 
         writer.WriteLine("episode,startTime,endTime,aliveTime," +

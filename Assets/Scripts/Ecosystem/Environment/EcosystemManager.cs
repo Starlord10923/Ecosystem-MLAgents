@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Barracuda;
 using UnityEngine;
 
 public class EcosystemManager : Singleton<EcosystemManager>
@@ -6,6 +7,12 @@ public class EcosystemManager : Singleton<EcosystemManager>
     public GameObject Environment;
     public Vector2 bounds = new(20, 20);
     public bool UseHeuristicControl = false;  // Toggle globally in Inspector or via UI
+    public bool UseBrain = false;
+    public NNModel PreyBrain;
+    public NNModel PredatorBrain;
+    [Range(1f, 20f)]
+    public float TimeScale = 1f;
+
     public bool showValues = false;
 
     /* ─── Active-agent tracking ─── */
@@ -14,6 +21,13 @@ public class EcosystemManager : Singleton<EcosystemManager>
 
     [Header("Ecosystem Metrics")]
     public EpisodeMetrics CumulativeData = new();
+
+    protected override void Awake()
+    {
+        base.Awake();
+        if (!UseHeuristicControl && UseBrain)
+            Time.timeScale = TimeScale;
+    }
 
     public void Register(AgentBase agent)
     {
@@ -137,6 +151,14 @@ public class EcosystemManager : Singleton<EcosystemManager>
     /* convenience remove wrapper */
     public void Remove(GameObject agent) => Destroy(agent);
 
+    private void ShowVisualValues()
+    {
+        foreach (var bar in FindObjectsByType<ResourceBar>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            bar.gameObject.SetActive(showValues);
+        foreach (var bar in FindObjectsByType<AnimalBar>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            bar.gameObject.SetActive(showValues);
+    }
+
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {
@@ -172,6 +194,17 @@ public class EcosystemManager : Singleton<EcosystemManager>
         UnityEditor.Handles.Label(q2 + Vector3.up * 2f, "Quadrant 2", labelStyle);
         UnityEditor.Handles.Label(q3 + Vector3.up * 2f, "Quadrant 3\nPredator", labelStyle);
         UnityEditor.Handles.Label(q4 + Vector3.up * 2f, "Quadrant 4", labelStyle);
+    }
+
+    private void OnValidate()
+    {
+        ShowVisualValues();
+
+        if (!UseHeuristicControl && UseBrain)
+        {
+            if (Time.timeScale != TimeScale)
+                Time.timeScale = TimeScale;
+        }
     }
 #endif
 }

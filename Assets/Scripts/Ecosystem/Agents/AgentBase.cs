@@ -40,6 +40,13 @@ public class AgentBase : Agent
             bp.BehaviorType = EcosystemManager.Instance.UseHeuristicControl
                 ? Unity.MLAgents.Policies.BehaviorType.HeuristicOnly
                 : Unity.MLAgents.Policies.BehaviorType.Default;
+            if (!EcosystemManager.Instance.UseHeuristicControl)
+            {
+                if (this is PreyAgent && EcosystemManager.Instance.PreyBrain != null)
+                    bp.Model = EcosystemManager.Instance.PreyBrain;
+                else if (this is PredatorAgent && EcosystemManager.Instance.PredatorBrain != null)
+                    bp.Model = EcosystemManager.Instance.PredatorBrain;
+            }
         }
     }
 
