@@ -312,7 +312,9 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1
   blockingTags:
-    mask: 1536
+    selectedTags:
+    - Prey
+    - Predator
   PreyParent: {fileID: 0}
   PredatorParent: {fileID: 0}
   FoodParent: {fileID: 0}
@@ -533,6 +535,7 @@ MonoBehaviour:
   UseBrain: 1
   PreyBrain: {fileID: 5022602860645237092, guid: 7104b558c54528c44895315864b4b8e2, type: 3}
   PredatorBrain: {fileID: 0}
+  TimeScale: 1
   showValues: 0
   CumulativeData:
     totalEpisodes: 0
@@ -753,7 +756,7 @@ GameObject:
   - component: {fileID: 8466073408332440383}
   - component: {fileID: 6461768280344740188}
   m_Layer: 0
-  m_Name: Env1-Simple
+  m_Name: Env1-Prey
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

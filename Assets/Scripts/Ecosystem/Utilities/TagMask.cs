@@ -1,75 +1,86 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEditorInternal;
 #endif
-using UnityEngine;
 
-[System.Serializable]
+[Serializable]
 public class TagMask
 {
-    [SerializeField, HideInInspector] private int mask;
+    [SerializeField]
+    private List<string> selectedTags = new List<string>();
 
-    /// <summary>Returns true if the given tag is selected in the mask.</summary>
+    private HashSet<string> _tagSet;
+
     public bool Contains(string tag)
     {
-        int index = GetTagIndex(tag);
-        return index >= 0 && (mask & (1 << index)) != 0;
+        EnsureCache();
+        return _tagSet.Contains(tag);
     }
 
-    /// <summary>Build a tag mask from selected tag names.</summary>
-    public void SetSelectedTags(string[] selectedTags)
-    {
-        mask = 0;
-        foreach (var tag in selectedTags)
-        {
-            int index = GetTagIndex(tag);
-            if (index >= 0)
-                mask |= 1 << index;
-        }
-    }
-
-    /// <summary>Returns all selected tag names.</summary>
     public string[] GetSelectedTags()
     {
-        var allTags = UnityEditorInternal.InternalEditorUtility.tags;
-        var result = new System.Collections.Generic.List<string>();
-        for (int i = 0; i < allTags.Length; i++)
-        {
-            if ((mask & (1 << i)) != 0)
-                result.Add(allTags[i]);
-        }
-        return result.ToArray();
+        return selectedTags.ToArray();
     }
 
-    private int GetTagIndex(string tag)
+    public void SetSelectedTags(string[] tags)
     {
-        var allTags = UnityEditorInternal.InternalEditorUtility.tags;
-        for (int i = 0; i < allTags.Length; i++)
-        {
-            if (allTags[i] == tag) return i;
-        }
-        return -1;
+        selectedTags = new List<string>(tags);
+        _tagSet = null; // reset cache
     }
 
-    public int RawMask => mask;
-    public void SetRawMask(int raw) => mask = raw;
+    private void EnsureCache()
+    {
+        _tagSet ??= new HashSet<string>(selectedTags);
+    }
 }
 
-
 #if UNITY_EDITOR
+
 [CustomPropertyDrawer(typeof(TagMask))]
 public class TagMaskDrawer : PropertyDrawer
 {
     public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
     {
-        var rawMaskProp = property.FindPropertyRelative("mask");
+        var tagListProp = property.FindPropertyRelative("selectedTags");
+        string[] allTags = InternalEditorUtility.tags;
 
-        string[] tags = InternalEditorUtility.tags;
-        int currentMask = rawMaskProp.intValue;
+        int currentMask = 0;
+        for (int i = 0; i < allTags.Length; i++)
+        {
+            if (tagListProp.Contains(allTags[i]))
+                currentMask |= 1 << i;
+        }
 
-        int newMask = EditorGUI.MaskField(position, label, currentMask, tags);
+        int newMask = EditorGUI.MaskField(position, label, currentMask, allTags);
         if (newMask != currentMask)
-            rawMaskProp.intValue = newMask;
+        {
+            tagListProp.ClearArray();
+            for (int i = 0; i < allTags.Length; i++)
+            {
+                if ((newMask & (1 << i)) != 0)
+                {
+                    int index = tagListProp.arraySize;
+                    tagListProp.InsertArrayElementAtIndex(index);
+                    tagListProp.GetArrayElementAtIndex(index).stringValue = allTags[i];
+                }
+            }
+        }
+    }
+}
+
+public static class SerializedPropertyExtensions
+{
+    public static bool Contains(this SerializedProperty list, string value)
+    {
+        for (int i = 0; i < list.arraySize; i++)
+        {
+            if (list.GetArrayElementAtIndex(i).stringValue == value)
+                return true;
+        }
+        return false;
     }
 }
 #endif
