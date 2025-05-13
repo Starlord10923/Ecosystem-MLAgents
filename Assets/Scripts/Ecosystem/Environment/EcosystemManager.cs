@@ -16,7 +16,7 @@ public class EcosystemManager : Singleton<EcosystemManager>
     public bool showValues = false;
 
     /* ─── Active-agent tracking ─── */
-    private readonly HashSet<AgentBase> liveAgents = new();
+    public HashSet<AgentBase> liveAgents = new();
     private bool isResettingEnvironment = false;
 
     [Header("Ecosystem Metrics")]

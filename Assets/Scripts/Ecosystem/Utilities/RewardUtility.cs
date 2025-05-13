@@ -1,3 +1,4 @@
+using System.Linq;
 using Unity.MLAgents;
 using UnityEngine;
 
@@ -34,12 +35,24 @@ public static class RewardUtility
         EcosystemManager.Instance.CumulativeData.partialMatingReward += amount;
         agent.AddReward(amount);
     }
-    /// <summary>Reward for Mating. Baseline: +5 for success.</summary>
-    public static void AddMatingSuccessReward(Agent agent, float amount = 5f)
+
+    /// <summary>Group Reward for Mating. Baseline: +5 for involved agents, +0.5 for all others.</summary>
+    public static void AddMatingSuccessReward(AgentAnimalBase agentA, AgentAnimalBase agentB, float localReward = 5f, float globalReward = 0.25f)
     {
-        EcosystemManager.Instance.CumulativeData.totalRewardGiven += amount;
+        var sameClassAgents = EcosystemManager.Instance.liveAgents
+            .Select(a => a.GetComponent<AgentAnimalBase>())
+            .Where(a => a != null && a != agentA && a != agentB && a.animalType == agentA.animalType);
+
+        EcosystemManager.Instance.CumulativeData.totalRewardGiven += (localReward * 2) + (globalReward * sameClassAgents.Count());
         EcosystemManager.Instance.CumulativeData.totalMating++;
-        agent.AddReward(amount);
+
+        agentA.AddReward(localReward);
+        agentB.AddReward(localReward);
+
+        foreach (var agent in sameClassAgents)
+        {
+            agent.AddReward(globalReward);
+        }
     }
 
     /// <summary>Negative reward for being hungry or thirsty each frame. Penalty scales with deficiency.</summary>

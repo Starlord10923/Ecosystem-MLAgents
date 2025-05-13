@@ -37,7 +37,7 @@ public abstract class AgentAnimalBase : AgentBase
     {
         if (currentConsumption.IsRunning || !other.TryGetComponent<SustainedConsumable>(out var target))
             return;
-        if (animalType==AnimalType.Prey && target.consumableType == SustainedConsumable.Type.Prey)
+        if (animalType == AnimalType.Prey && target.consumableType == SustainedConsumable.Type.Prey)
             return;
 
         currentTarget = other;
@@ -156,7 +156,7 @@ public abstract class AgentAnimalBase : AgentBase
         Vector3 spawnPos = (transform.position + partner.transform.position) / 2f;
         EcosystemManager.Instance.SpawnAnimal(this, partner, childStats, spawnPos);
 
-        RewardUtility.AddMatingSuccessReward(this);
+        RewardUtility.AddMatingSuccessReward(this, partner);
     }
 
     static readonly Collider[] probeHits = new Collider[8];   // tweak size as needed
