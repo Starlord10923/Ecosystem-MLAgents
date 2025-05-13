@@ -2,26 +2,29 @@ using UnityEngine;
 
 [System.Serializable]
 public class AgentStats
-{
-    public float hunger = 1f;
-    public float thirst = 1f;
-    public float health = 1f;
-
+{    
+    [Header("Genetic / Inherited Traits")]
     public float speed = 1f;
     public float sightRange = 1f;
     public float maxSize = 1f;
+    public float MaxLifetime = 60f;
+    public float growthTime = 20f;
+    [ReadOnly] public int Generation = 0;
 
+    [Header("Runtime State Variables")]
+    [ReadOnly] public float hunger = 1f;
+    [ReadOnly] public float thirst = 1f;
+    [ReadOnly] public float health = 1f;
+    [ReadOnly] public float age = 0f;
+
+    [ReadOnly] public float hungerPauseUntil = 0f;
+    [ReadOnly] public float thirstPauseUntil = 0f;
+
+    [Header("Decay & Regeneration Rates")]
     public float hungerDecayRate = 0.03f;
     public float thirstDecayRate = 0.02f;
     public float healthDecayRate = 0.01f;
     public float healthRegenRate = 0.02f;
-
-    public float MaxLifetime = 60f;
-    public float growthTime = 20f;
-    public float age = 0f;
-
-    public float hungerPauseUntil = 0f;
-    public float thirstPauseUntil = 0f;
 
     public float CurrentSize => growthTime <= 0f
         ? maxSize
@@ -32,11 +35,12 @@ public class AgentStats
 
     public AgentStats() { }
 
-    public AgentStats(float speed, float maxSize, float sightRange)
+    public AgentStats(float speed, float maxSize, float sightRange, float MaxLifetime)
     {
         this.speed = speed;
         this.maxSize = maxSize;
         this.sightRange = sightRange;
+        this.MaxLifetime = MaxLifetime;
     }
 
     public void TickDecay(float dt)
@@ -78,7 +82,7 @@ public class AgentStats
     public void IncreaseHealth(float amount)
     {
         health += amount;
-                health = Mathf.Clamp01(health);
+        health = Mathf.Clamp01(health);
     }
 
     public void Mate()
@@ -119,6 +123,7 @@ public class AgentStats
             MaxLifetime = source.MaxLifetime,
             growthTime = source.growthTime,
             age = 0f, // newborn
+            Generation = source.Generation,
             hungerPauseUntil = 0f,
             thirstPauseUntil = 0f
         };

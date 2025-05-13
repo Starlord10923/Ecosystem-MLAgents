@@ -132,6 +132,7 @@ MonoBehaviour:
     MaxLifetime: 60
     growthTime: 20
     age: 0
+    Generation: 0
     hungerPauseUntil: 0
     thirstPauseUntil: 0
   hungerBar: {fileID: 9164539213848200977}
@@ -831,7 +832,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 6
+    VectorObservationSize: 7
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 2
@@ -878,11 +879,15 @@ MonoBehaviour:
     MaxLifetime: 60
     growthTime: 20
     age: 0
+    Generation: 0
     hungerPauseUntil: 0
     thirstPauseUntil: 0
   maxSpeed: 0
   animalBar: {fileID: 7783868138811611985}
   animalType: 0
+  ReasonOfDeath: 0
+  Parent1ID: -1
+  Parent2ID: -1
 --- !u!114 &6159331996059332121
 MonoBehaviour:
   m_ObjectHideFlags: 0

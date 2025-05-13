@@ -106,9 +106,9 @@ public class EcosystemManager : Singleton<EcosystemManager>
         return center + new Vector3(x, 1f, z);
     }
 
-    public void SpawnAnimal(AgentAnimalBase parent, AgentStats childStats, Vector3 spawnPos)
+    public void SpawnAnimal(AgentAnimalBase parent1,AgentAnimalBase parent2, AgentStats childStats, Vector3 spawnPos)
     {
-        var isPrey = parent.animalType == AgentAnimalBase.AnimalType.Prey;
+        var isPrey = parent1.animalType == AgentAnimalBase.AnimalType.Prey;
         var prefabList = isPrey ? SpawnerManager.Instance.preyPrefabs : SpawnerManager.Instance.predatorPrefabs;
         var parentTransform = isPrey ? SpawnerManager.Instance.PreyParent.transform : SpawnerManager.Instance.PredatorParent.transform;
 
@@ -118,6 +118,11 @@ public class EcosystemManager : Singleton<EcosystemManager>
         if (child.TryGetComponent(out AgentBase agentBase))
         {
             agentBase.InitializeStats(AgentStats.Clone(childStats));   // newborn stats
+        }
+        if (child.TryGetComponent(out AgentAnimalBase agentAnimal))
+        {
+            agentAnimal.Parent1ID = parent1.GetInstanceID();
+            agentAnimal.Parent2ID = parent2.GetInstanceID();
         }
     }
 
@@ -234,6 +239,8 @@ public class EpisodeMetrics
     [Header("Reproduction Metrics")]
     public int totalMating = 0;
     public float partialMatingReward = 0f;
+    public int highestPreyGeneration = 0;
+    public int highestPredatorGeneration = 0;
 
     [Header("Mortality Stats")]
     public int animalKilled = 0;

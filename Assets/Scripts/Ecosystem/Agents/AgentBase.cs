@@ -52,10 +52,14 @@ public class AgentBase : Agent
 
     public virtual void InitializeStats(AgentStats inherited = null)
     {
-        stats = inherited ?? new AgentStats(
-                     Random.Range(10f, 20f),  // speed
-                     Random.Range(1.5f, 2.5f),  // maxSize
-                     Random.Range(0.8f, 1.5f)); // sightRange (keep in small bounds)
+        if (stats == null || stats.Generation == 0)
+        {
+            stats = inherited ?? new AgentStats(
+                         Random.Range(10f, 20f),  // speed
+                         Random.Range(1.5f, 2.5f),  // maxSize
+                         Random.Range(0.8f, 1.5f), // sightRange (keep in small bounds)
+                         Random.Range(50f, 70f)); // MaxLifetime
+        }
 
         maxSpeed = stats.speed;
         transform.localScale = Vector3.one * stats.CurrentSize;
@@ -75,12 +79,22 @@ public class AgentBase : Agent
 
         if (!stats.IsAlive)
         {
+            AgentAnimalBase animal = GetComponent<AgentAnimalBase>();
             if (stats.LivedFullLife)
+            {
                 EcosystemManager.Instance.CumulativeData.reachedLifeEnd += 1;
-            if(stats.hunger<=0f)
+                animal.ReasonOfDeath = AgentAnimalBase.DeathReason.Natural;
+            }
+            if (stats.hunger <= 0f)
+            {
                 EcosystemManager.Instance.CumulativeData.diedFromHunger += 1;
-            if(stats.thirst<=0f)
+                animal.ReasonOfDeath = AgentAnimalBase.DeathReason.Starvation;
+            }
+            if (stats.thirst <= 0f)
+            {
                 EcosystemManager.Instance.CumulativeData.diedFromThirst += 1;
+                animal.ReasonOfDeath = AgentAnimalBase.DeathReason.Dehydration;
+            }
             Die();
             return;
         }

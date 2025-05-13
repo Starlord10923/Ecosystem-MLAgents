@@ -251,13 +251,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 420237177}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -10}
+  m_LocalRotation: {x: 0.4367579, y: -0, z: -0, w: 0.8995791}
+  m_LocalPosition: {x: 0, y: 44.8, z: -55.4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 51.794, y: 0, z: 0}
 --- !u!1 &482439396
 GameObject:
   m_ObjectHideFlags: 0
@@ -531,9 +531,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Environment: {fileID: 2769830148051336634}
   bounds: {x: 45, y: 45}
-  UseHeuristicControl: 0
-  UseBrain: 1
-  PreyBrain: {fileID: 5022602860645237092, guid: 7104b558c54528c44895315864b4b8e2, type: 3}
+  UseHeuristicControl: 1
+  UseBrain: 0
+  PreyBrain: {fileID: 0}
   PredatorBrain: {fileID: 0}
   TimeScale: 1
   showValues: 0
@@ -550,6 +550,8 @@ MonoBehaviour:
     waterConsumed: 0
     totalMating: 0
     partialMatingReward: 0
+    highestPreyGeneration: 0
+    highestPredatorGeneration: 0
     animalKilled: 0
     reachedLifeEnd: 0
     diedFromHunger: 0
@@ -756,7 +758,7 @@ GameObject:
   - component: {fileID: 8466073408332440383}
   - component: {fileID: 6461768280344740188}
   m_Layer: 0
-  m_Name: Env1-Prey
+  m_Name: Env1-Prey-V1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

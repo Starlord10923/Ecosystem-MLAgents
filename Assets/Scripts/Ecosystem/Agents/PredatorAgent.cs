@@ -24,6 +24,7 @@ public class PredatorAgent : AgentAnimalBase
         sensor.AddObservation(stats.CurrentSize / 3f);
         sensor.AddObservation(stats.maxSize / 3f);
         sensor.AddObservation(stats.speed / 5f);
+        sensor.AddObservation(stats.MaxLifetime - stats.age);
     }
 
     public override void OnActionReceived(ActionBuffers actions)

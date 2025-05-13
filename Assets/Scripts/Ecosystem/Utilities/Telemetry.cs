@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -8,24 +9,47 @@ public class Telemetry : Singleton<Telemetry>
     private EpisodeMetrics lastRecordedData;
     private double episodeStartTime = 0.0;
 
+    private string agentCsvPath;
+    private StreamWriter agentWriter;
+    private List<string> agentStatsBuffer = new();
+
     private void Start()
     {
-        string telemetryDir = Path.Combine(Application.dataPath, "Telemetry");
+        int suffix = -1;
+#if UNITY_EDITOR
+        string rootPath = Path.GetFullPath(Path.Combine(Application.dataPath, "../"));
+#else
+        string rootPath = Path.GetFullPath(Path.Combine(Application.dataPath, "../../"));
+        suffix = System.Diagnostics.Process.GetCurrentProcess().Id;
+#endif
+
+        string telemetryDir = Path.Combine(rootPath, "Assets", "Telemetry");
         if (!Directory.Exists(telemetryDir))
             Directory.CreateDirectory(telemetryDir);
         string environmentDir = Path.Combine(telemetryDir, EcosystemManager.Instance.Environment.name);
         if (!Directory.Exists(environmentDir))
             Directory.CreateDirectory(environmentDir);
+        string runDir = suffix == -1
+                ? Path.Combine(environmentDir, $"{System.DateTime.Now:yyyyMMdd_HHmm}")
+                : Path.Combine(environmentDir, $"{System.DateTime.Now:yyyyMMdd_HHmm}_{suffix}");
+        if (!Directory.Exists(runDir))
+            Directory.CreateDirectory(runDir);
 
-        csvPath = Path.Combine(environmentDir, $"eco-log-{System.DateTime.Now:yyyyMMdd_HHmm}.csv");
+        csvPath = Path.Combine(runDir, $"eco-log.csv");
         writer = new StreamWriter(csvPath);
-
         writer.WriteLine("episode,startTime,endTime,aliveTime," +
                          "totalRewardGiven,totalPenaltyGiven,crowdingPenalty," +
                          "totalPreySpawned,totalPredatorsSpawned," +
                          "foodConsumed,waterConsumed," +
                          "totalMating,partialMatingReward," +
                          "animalKilled,reachedLifeEnd,diedFromHunger,diedFromThirst");
+        writer.Flush(); // ✅ Force write to disk
+
+        agentCsvPath = Path.Combine(runDir, $"agentStats.csv");
+        agentWriter = new StreamWriter(agentCsvPath);
+        agentWriter.WriteLine("episode,agentID,type,parents,generation,speed,sightRange,maxSize,maxLifetime,age,reasonOfDeath,episodeLifetimeScore");
+
+        agentWriter.Flush();
 
         Debug.Log($"[Telemetry] Logging to: {csvPath}");
     }
@@ -79,12 +103,41 @@ public class Telemetry : Singleton<Telemetry>
 
         lastRecordedData = snapshot.Clone(); // move reference forward
         writer.Flush();
+
+        FlushAgentStats();
+    }
+
+    public void LogAgentStats(AgentAnimalBase agent)
+    {
+        string type = agent.animalType == AgentAnimalBase.AnimalType.Prey ? "Prey" :
+                      agent.animalType == AgentAnimalBase.AnimalType.Predator ? "Predator" : "Unknown";
+        EpisodeMetrics EM = EcosystemManager.Instance.CumulativeData;
+        var stats = agent.stats;
+
+        agentStatsBuffer.Add($"{EM.totalEpisodes},{agent.GetInstanceID()},{type}," +
+                             $"\"{agent.Parent1ID} {agent.Parent2ID}\"" +
+                             $"{stats.Generation}," +
+                             $"{stats.speed:F3},{stats.sightRange:F3},{stats.maxSize:F3}," +
+                             $"{stats.MaxLifetime:F3},{stats.age:F3}," +
+                             $"{agent.ReasonOfDeath},{agent.GetCumulativeReward()}");
+    }
+
+    public void FlushAgentStats()
+    {
+        if (agentStatsBuffer.Count == 0)
+            return;
+        foreach (var line in agentStatsBuffer)
+            agentWriter.WriteLine(line);
+
+        agentWriter.Flush();
+        agentStatsBuffer.Clear();
     }
 
     protected override void OnDestroy()
     {
         base.OnDestroy();
         writer?.Close();
+        agentWriter?.Close();
     }
 
     public EpisodeMetrics GetLastSnapshot()

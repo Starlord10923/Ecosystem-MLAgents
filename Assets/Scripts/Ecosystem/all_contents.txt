@@ -7,6 +7,8 @@ using UnityEngine;
 
 public abstract class AgentAnimalBase : AgentBase
 {
+    public enum AnimalType { Prey, Predator }
+    public AnimalType animalType;
     private CoroutineHandle currentConsumption;
     private Collider currentTarget = null;
 
@@ -33,7 +35,7 @@ public abstract class AgentAnimalBase : AgentBase
     {
         if (currentConsumption.IsRunning || !other.TryGetComponent<SustainedConsumable>(out var target))
             return;
-        if (this is PreyAgent && target.consumableType == SustainedConsumable.Type.Prey)
+        if (animalType==AnimalType.Prey && target.consumableType == SustainedConsumable.Type.Prey)
             return;
 
         currentTarget = other;
@@ -150,9 +152,33 @@ public abstract class AgentAnimalBase : AgentBase
         // Create inherited child
         AgentStats childStats = GeneticUtility.Inherit(stats, partner.stats);
         Vector3 spawnPos = (transform.position + partner.transform.position) / 2f;
-        EcosystemManager.Instance.CumulativeData.SpawnAnimal(this, childStats, spawnPos);
+        EcosystemManager.Instance.SpawnAnimal(this, childStats, spawnPos);
 
         RewardUtility.AddMatingSuccessReward(this);
+    }
+
+    static readonly Collider[] probeHits = new Collider[8];   // tweak size as needed
+    public void PenalizeCrowding()
+    {
+        // No penalty for crowding if it can mate
+        if (stats.CanMate) return;
+
+        int hitCount = Physics.OverlapSphereNonAlloc(transform.position, 2f, probeHits);
+        int nearbyPrey = 0;
+        for (int i = 0; i < hitCount; i++)
+        {
+            var hit = probeHits[i];
+            if (hit == null) continue;
+
+            if (hit.gameObject != gameObject && hit.TryGetComponent<AgentAnimalBase>(out var animal))
+            {
+                if (animalType == animal.animalType)
+                    nearbyPrey += 1;
+            }
+        }
+
+        if (nearbyPrey >= 2) // crowded
+            RewardUtility.AddCrowdedPenalty(this, nearbyPrey);
     }
 
     public override void Die()
@@ -167,27 +193,33 @@ public abstract class AgentAnimalBase : AgentBase
 
     protected void Eat(float amt, SustainedConsumable target)
     {
-        stats.Eat(amt);
-        RewardUtility.AddNutritionReward(this, amt);
-        target.Consume(amt);
-        animalBar.UpdateFromStats();
+        if (target.Consume(amt) > 0)
+        {
+            stats.Eat(amt);
+            RewardUtility.AddNutritionReward(this, amt);
+            animalBar.UpdateFromStats();
+        }
     }
 
     protected void EatAnimal(float amt, SustainedConsumable target, PreyAgent prey)
     {
-        prey.stats.TakeDamage(amt);
-        stats.Eat(amt);
-        RewardUtility.AddPredationReward(this, amt);
-        target.Consume(amt);
-        animalBar.UpdateFromStats();
+        if (target.Consume(amt) > 0)
+        {
+            prey.stats.TakeDamage(amt);
+            stats.Eat(amt);
+            RewardUtility.AddPredationReward(this, amt);
+            animalBar.UpdateFromStats();
+        }
     }
 
     protected void Drink(float amt, SustainedConsumable target)
     {
-        stats.Drink(amt);
-        RewardUtility.AddWaterReward(this, amt);
-        target.Consume(amt);
-        animalBar.UpdateFromStats();
+        if (target.Consume(amt) > 0)
+        {
+            stats.Drink(amt);
+            RewardUtility.AddWaterReward(this, amt);
+            animalBar.UpdateFromStats();
+        }
     }
 
     public override void UpdateSize()
@@ -217,7 +249,7 @@ public class AgentBase : Agent
     protected override void OnEnable()
     {
         base.OnEnable();
-        EcosystemManager.Instance.CumulativeData.Register(this);
+        EcosystemManager.Instance.Register(this);
     }
 
     private void OnDestroy()
@@ -225,7 +257,7 @@ public class AgentBase : Agent
         if (!Application.isPlaying || EcosystemManager.Instance == null)
             return;
 
-        EcosystemManager.Instance.CumulativeData.Unregister(this);
+        EcosystemManager.Instance.Unregister(this);
     }
 
     protected virtual void Awake()
@@ -238,9 +270,16 @@ public class AgentBase : Agent
     {
         if (TryGetComponent<Unity.MLAgents.Policies.BehaviorParameters>(out var bp))
         {
-            bp.BehaviorType = EcosystemManager.Instance.CumulativeData.UseHeuristicControl
+            bp.BehaviorType = EcosystemManager.Instance.UseHeuristicControl
                 ? Unity.MLAgents.Policies.BehaviorType.HeuristicOnly
                 : Unity.MLAgents.Policies.BehaviorType.Default;
+            if (!EcosystemManager.Instance.UseHeuristicControl)
+            {
+                if (this is PreyAgent && EcosystemManager.Instance.PreyBrain != null)
+                    bp.Model = EcosystemManager.Instance.PreyBrain;
+                else if (this is PredatorAgent && EcosystemManager.Instance.PredatorBrain != null)
+                    bp.Model = EcosystemManager.Instance.PredatorBrain;
+            }
         }
     }
 
@@ -269,11 +308,17 @@ public class AgentBase : Agent
 
         if (!stats.IsAlive)
         {
+            if (stats.LivedFullLife)
+                EcosystemManager.Instance.CumulativeData.reachedLifeEnd += 1;
+            if(stats.hunger<=0f)
+                EcosystemManager.Instance.CumulativeData.diedFromHunger += 1;
+            if(stats.thirst<=0f)
+                EcosystemManager.Instance.CumulativeData.diedFromThirst += 1;
             Die();
             return;
         }
 
-        RewardUtility.AddDecayPenalty(this, stats.hunger, stats.thirst);
+        RewardUtility.ApplyVitalityReward(this, stats.hunger, stats.thirst);
 
         // Compute movement
         moveDir.Set(transform.forward.x * currentMove.y, 0f, transform.forward.z * currentMove.y);
@@ -297,9 +342,7 @@ public class AgentBase : Agent
     public virtual void UpdateSize() { }
     public virtual void Die()
     {
-        Debug.Log($"Animal is Dead : {gameObject.name}");
-        Telemetry.Instance.OnAgentDeath();
-        Telemetry.Instance.AddReward(GetCumulativeReward());
+        // Debug.Log($"Animal is Dead : {gameObject.name}");
     }
 }
 
@@ -318,8 +361,8 @@ public class AgentStats
     public float sightRange = 1f;
     public float maxSize = 1f;
 
-    public float hungerDecayRate = 0.02f;
-    public float thirstDecayRate = 0.03f;
+    public float hungerDecayRate = 0.03f;
+    public float thirstDecayRate = 0.02f;
     public float healthDecayRate = 0.01f;
     public float healthRegenRate = 0.02f;
 
@@ -407,6 +450,7 @@ public class AgentStats
     }
 
     public bool CanMate => IsAdult && hunger >= 0.7f && thirst >= 0.7f;
+    public bool LivedFullLife => age >= MaxLifetime;
 
     public static AgentStats Clone(AgentStats source)
     {
@@ -438,10 +482,16 @@ using UnityEngine;
 
 public class PredatorAgent : AgentAnimalBase
 {
+    protected override void Awake()
+    {
+        base.Awake();
+        animalType = AnimalType.Predator;
+    }
+
     public override void OnEpisodeBegin()
     {
         InitializeStats();
-        transform.position = EcosystemManager.Instance.CumulativeData.GetSpawnPosition();
+        transform.position = EcosystemManager.Instance.GetSpawnPosition();
         rb.velocity = Vector3.zero;
     }
 
@@ -453,12 +503,14 @@ public class PredatorAgent : AgentAnimalBase
         sensor.AddObservation(stats.CurrentSize / 3f);
         sensor.AddObservation(stats.maxSize / 3f);
         sensor.AddObservation(stats.speed / 5f);
+        sensor.AddObservation(stats.MaxLifetime - stats.age);
     }
 
     public override void OnActionReceived(ActionBuffers actions)
     {
         currentMove = new Vector2(actions.ContinuousActions[0], actions.ContinuousActions[1]);
         brake = Mathf.Clamp01(actions.DiscreteActions[0]);
+        PenalizeCrowding();
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
@@ -476,7 +528,7 @@ public class PredatorAgent : AgentAnimalBase
     public override void Die()
     {
         base.Die();
-        EcosystemManager.Instance.CumulativeData.Remove(gameObject);
+        EcosystemManager.Instance.Remove(gameObject);
         EndEpisode();
     }
 }
@@ -494,6 +546,7 @@ public class PreyAgent : AgentAnimalBase
     {
         base.Awake();
         sustainedConsumable = GetComponent<SustainedConsumable>();
+        animalType = AnimalType.Prey;
     }
 
     public override void OnEpisodeBegin()
@@ -510,12 +563,14 @@ public class PreyAgent : AgentAnimalBase
         sensor.AddObservation(stats.CurrentSize / 3f);
         sensor.AddObservation(stats.maxSize / 3f);
         sensor.AddObservation(stats.speed / 5f);
+        sensor.AddObservation(stats.MaxLifetime - stats.age);
     }
 
     public override void OnActionReceived(ActionBuffers actions)
     {
         currentMove = new Vector2(actions.ContinuousActions[0], actions.ContinuousActions[1]);
         brake = Mathf.Clamp01(actions.DiscreteActions[0]);
+        PenalizeCrowding();
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
@@ -543,7 +598,7 @@ public class PreyAgent : AgentAnimalBase
     public override void Die()
     {
         base.Die();
-        EcosystemManager.Instance.CumulativeData.Remove(gameObject);
+        EcosystemManager.Instance.Remove(gameObject);
         EndEpisode();
     }
 }
@@ -571,7 +626,7 @@ public class AnimalBar : MonoBehaviour
 
     private void Start()
     {
-        if (!EcosystemManager.Instance.CumulativeData.showValues) gameObject.SetActive(false);
+        if (!EcosystemManager.Instance.showValues) gameObject.SetActive(false);
     }
 
     private void Update()
@@ -595,6 +650,7 @@ public class AnimalBar : MonoBehaviour
 
 --- FILE: Environment\EcosystemManager.cs ---
 using System.Collections.Generic;
+using Unity.Barracuda;
 using UnityEngine;
 
 public class EcosystemManager : Singleton<EcosystemManager>
@@ -602,19 +658,47 @@ public class EcosystemManager : Singleton<EcosystemManager>
     public GameObject Environment;
     public Vector2 bounds = new(20, 20);
     public bool UseHeuristicControl = false;  // Toggle globally in Inspector or via UI
+    public bool UseBrain = false;
+    public NNModel PreyBrain;
+    public NNModel PredatorBrain;
+    [Range(1f, 20f)]
+    public float TimeScale = 1f;
+
     public bool showValues = false;
 
     /* ─── Active-agent tracking ─── */
     private readonly HashSet<AgentBase> liveAgents = new();
     private bool isResettingEnvironment = false;
 
+    [Header("Ecosystem Metrics")]
+    public EpisodeMetrics CumulativeData = new();
+
+    protected override void Awake()
+    {
+        base.Awake();
+        if (!UseHeuristicControl && UseBrain)
+            Time.timeScale = TimeScale;
+    }
+
     public void Register(AgentBase agent)
     {
         liveAgents.Add(agent);
+        if (agent is PreyAgent)
+        {
+            CumulativeData.currentPreyCount += 1;
+            CumulativeData.totalPreySpawned += 1;
+        }
+        else
+        {
+            CumulativeData.currentPredatorCount += 1;
+            CumulativeData.totalPredatorsSpawned += 1;
+        }
     }
     public void Unregister(AgentBase agent)
     {
         liveAgents.Remove(agent);
+        if (agent is PreyAgent) CumulativeData.currentPreyCount -= 1;
+        else CumulativeData.currentPredatorCount -= 1;
 
         // if everyone died, restart environment & episode
         if (liveAgents.Count == 0 && !isResettingEnvironment)
@@ -622,7 +706,7 @@ public class EcosystemManager : Singleton<EcosystemManager>
             ResetEnvironment();
         }
     }
-    
+
     private static readonly List<AgentBase> agentBuffer = new(128);
     private void FixedUpdate()
     {
@@ -675,14 +759,17 @@ public class EcosystemManager : Singleton<EcosystemManager>
 
     public void SpawnAnimal(AgentAnimalBase parent, AgentStats childStats, Vector3 spawnPos)
     {
-        GameObject animalPrefab = parent is PreyAgent ? SpawnerManager.Instance.preyPrefabs[0] : SpawnerManager.Instance.predatorPrefabs[0];
+        var isPrey = parent.animalType == AgentAnimalBase.AnimalType.Prey;
+        var prefabList = isPrey ? SpawnerManager.Instance.preyPrefabs : SpawnerManager.Instance.predatorPrefabs;
+        var parentTransform = isPrey ? SpawnerManager.Instance.PreyParent.transform : SpawnerManager.Instance.PredatorParent.transform;
 
-        GameObject child = Instantiate(animalPrefab, spawnPos, Quaternion.identity);
+        if (prefabList.Count == 0) return;
+
+        var child = Instantiate(prefabList[0], spawnPos, Quaternion.identity, parentTransform);
         if (child.TryGetComponent(out AgentBase agentBase))
         {
             agentBase.InitializeStats(AgentStats.Clone(childStats));   // newborn stats
         }
-        Telemetry.Instance.OnAgentSpawn();
     }
 
     /* ─── world reset ─── */
@@ -692,8 +779,9 @@ public class EcosystemManager : Singleton<EcosystemManager>
             return;
 
         isResettingEnvironment = true;
+        CumulativeData.totalEpisodes += 1;
 
-        Telemetry.Instance.OnEpisodeEnd();
+        Telemetry.Instance.OnEpisodeEnd(CumulativeData);
 
         // Cache to avoid modifying collection during iteration
         var allAnimals = new List<AgentAnimalBase>(FindObjectsByType<AgentAnimalBase>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID));
@@ -707,13 +795,20 @@ public class EcosystemManager : Singleton<EcosystemManager>
         liveAgents.Clear(); // explicit clear, no need to re-unregister on destroy
 
         SpawnerManager.Instance.Reinitialise();
-        Telemetry.Instance.OnEpisodeBegin();
 
         isResettingEnvironment = false;
     }
 
     /* convenience remove wrapper */
     public void Remove(GameObject agent) => Destroy(agent);
+
+    private void ShowVisualValues()
+    {
+        foreach (var bar in FindObjectsByType<ResourceBar>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            bar.gameObject.SetActive(showValues);
+        foreach (var bar in FindObjectsByType<AnimalBar>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            bar.gameObject.SetActive(showValues);
+    }
 
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()
@@ -751,7 +846,53 @@ public class EcosystemManager : Singleton<EcosystemManager>
         UnityEditor.Handles.Label(q3 + Vector3.up * 2f, "Quadrant 3\nPredator", labelStyle);
         UnityEditor.Handles.Label(q4 + Vector3.up * 2f, "Quadrant 4", labelStyle);
     }
+
+    private void OnValidate()
+    {
+        ShowVisualValues();
+
+        if (!UseHeuristicControl && UseBrain)
+        {
+            if (Time.timeScale != TimeScale)
+                Time.timeScale = TimeScale;
+        }
+    }
 #endif
+}
+
+
+[System.Serializable]
+public class EpisodeMetrics
+{
+    [Header("Global Episode Tracking")]
+    public int totalEpisodes = 0;
+
+    [Header("Reward & Penalty Stats")]
+    public float totalRewardGiven = 0f;
+    public float totalPenaltyGiven = 0f;
+    public float crowdingPenalty = 0f;
+
+    [Header("Population Metrics")]
+    public int totalPreySpawned = 0;
+    public int totalPredatorsSpawned = 0;
+    public int currentPreyCount = 0;
+    public int currentPredatorCount = 0;
+
+    [Header("Resource Consumption")]
+    public int foodConsumed = 0;
+    public int waterConsumed = 0;
+
+    [Header("Reproduction Metrics")]
+    public int totalMating = 0;
+    public float partialMatingReward = 0f;
+
+    [Header("Mortality Stats")]
+    public int animalKilled = 0;
+    public int reachedLifeEnd = 0;
+    public int diedFromHunger = 0;
+    public int diedFromThirst = 0;
+
+    public EpisodeMetrics Clone() => (EpisodeMetrics)MemberwiseClone();
 }
 
 
@@ -769,7 +910,7 @@ public class ResourceBar : MonoBehaviour
 
     private void Start()
     {
-        if (!EcosystemManager.Instance.CumulativeData.showValues) gameObject.SetActive(false);
+        if (!EcosystemManager.Instance.showValues) gameObject.SetActive(false);
     }
 
     private void Update()
@@ -820,13 +961,24 @@ public class SpawnerManager : Singleton<SpawnerManager>
     public LayerMask obstacleMask;
     public TagMask blockingTags;
 
-    GameObject PreyParent;
-    GameObject PredatorParent;
-    GameObject FoodParent;
-    GameObject WaterParent;
+    [Header("Holders")]
+    public GameObject PreyParent;
+    public GameObject PredatorParent;
+    public GameObject FoodParent;
+    public GameObject WaterParent;
 
     CoroutineHandle foodSpawnHandle;
     CoroutineHandle waterSpawnHandle;
+
+    public int activeFood = 0;
+    public int activeWater = 0;
+    public void OnFoodSpawned() => activeFood++;
+    public void OnWaterSpawned() => activeWater++;
+    public void OnFoodConsumed() => activeFood--;
+    public void OnWaterConsumed() => activeWater--;
+    [Header("Dynamic Spawn Balancing")]
+    public float targetFoodPerPrey = 1.5f;
+    public float targetWaterPerPrey = 0.8f;
 
     void Start()
     {
@@ -834,6 +986,9 @@ public class SpawnerManager : Singleton<SpawnerManager>
         PredatorParent = new GameObject($"Spawned-Predator");
         FoodParent = new GameObject($"Spawned-Food");
         WaterParent = new GameObject($"Spawned-Water");
+
+        activeFood = 0;
+        activeWater = 0;
 
         if (spawnPrey)
             Spawn(preyPrefabs, initialPrey, SpawnType.Prey);
@@ -849,8 +1004,7 @@ public class SpawnerManager : Singleton<SpawnerManager>
             waterSpawnHandle = Timing.RunCoroutine(SpawnWaterRoutine());
         }
 
-        if (Telemetry.Instance && Telemetry.Instance.EpisodeIndex == 0)
-                Telemetry.Instance.OnEpisodeBegin();              // ✱ first launch
+        Telemetry.Instance.OnEpisodeStart();
     }
 
     [ContextMenu("Spawn Prey")]
@@ -898,19 +1052,49 @@ public class SpawnerManager : Singleton<SpawnerManager>
 
     private IEnumerator<float> SpawnFoodRoutine()
     {
+        float checkInterval = 2f;
+        float elapsed = 0f;
+
         while (true)
         {
-            yield return Timing.WaitForSeconds(foodSpawnInterval);
-            Spawn(foodPrefabs, foodSpawnAmount, SpawnType.Food);
+            yield return Timing.WaitForSeconds(Mathf.Min(checkInterval, foodSpawnInterval - elapsed));
+            elapsed += checkInterval;
+
+            int preyCount = EcosystemManager.Instance.CumulativeData.currentPreyCount;
+            int target = Mathf.CeilToInt(preyCount * targetFoodPerPrey);
+
+            if (activeFood < target)
+            {
+                int toSpawn = Mathf.Max(foodSpawnAmount, target - activeFood);
+                Spawn(foodPrefabs, toSpawn, SpawnType.Food);
+            }
+
+            if (elapsed >= foodSpawnInterval)
+                elapsed = 0f;
         }
     }
 
     private IEnumerator<float> SpawnWaterRoutine()
     {
+        float checkInterval = 2f;
+        float elapsed = 0f;
+
         while (true)
         {
-            yield return Timing.WaitForSeconds(waterSpawnInterval);
-            Spawn(waterPrefab, waterSpawnAmount, SpawnType.Water);
+            yield return Timing.WaitForSeconds(Mathf.Min(checkInterval, waterSpawnInterval - elapsed));
+            elapsed += checkInterval;
+
+            int preyCount = EcosystemManager.Instance.CumulativeData.currentPreyCount;
+            int target = Mathf.CeilToInt(preyCount * targetWaterPerPrey);
+
+            if (activeWater < target)
+            {
+                int toSpawn = Mathf.Max(waterSpawnAmount, target - activeWater);
+                Spawn(waterPrefab, toSpawn, SpawnType.Water);
+            }
+
+            if (elapsed >= waterSpawnInterval)
+                elapsed = 0f;
         }
     }
 
@@ -947,7 +1131,7 @@ public class SpawnerManager : Singleton<SpawnerManager>
 
         for (int attempt = 0; attempt < maxSpawnAttempts; attempt++)
         {
-            Vector3 pos = EcosystemManager.Instance.CumulativeData.GetSpawnPosition(quadrant);
+            Vector3 pos = EcosystemManager.Instance.GetSpawnPosition(quadrant);
             pos.y = prefab.transform.localScale.y;
 
             int hitCount = Physics.OverlapSphereNonAlloc(
@@ -998,6 +1182,11 @@ public class SustainedConsumable : MonoBehaviour
         InitializeValues();
         resourceBar = GetComponentInChildren<ResourceBar>();
         resourceBar.SetConsumable(this);
+
+        if (consumableType == Type.Food)
+            SpawnerManager.Instance.OnFoodSpawned();
+        else if (consumableType == Type.Water)
+            SpawnerManager.Instance.OnWaterSpawned();
     }
 
     public void InitializeValues()
@@ -1051,6 +1240,25 @@ public class SustainedConsumable : MonoBehaviour
 
         remainingValue -= consumed;
         remainingValue = Mathf.Max(0f, remainingValue);
+
+        if (remainingValue <= 0)
+        {
+            switch (consumableType)
+            {
+                case Type.Food:
+                    EcosystemManager.Instance.CumulativeData.foodConsumed += 1;
+                    SpawnerManager.Instance.OnFoodConsumed();
+                    break;
+                case Type.Water:
+                    EcosystemManager.Instance.CumulativeData.waterConsumed += 1;
+                    SpawnerManager.Instance.OnWaterConsumed();
+                    break;
+                case Type.Prey:
+                    EcosystemManager.Instance.CumulativeData.animalKilled += 1;
+                    break;
+            }
+        }
+
         return consumed;
     }
 }
@@ -1154,6 +1362,7 @@ public static class RewardUtility
     public static void AddNutritionReward(Agent agent, float amount)
     {
         float scaled = 0.2f * amount / 0.1f;
+        EcosystemManager.Instance.CumulativeData.totalRewardGiven += scaled;
         agent.AddReward(scaled);
     }
 
@@ -1161,51 +1370,75 @@ public static class RewardUtility
     public static void AddWaterReward(Agent agent, float amount)
     {
         float scaled = 0.2f * amount / 0.1f;
+        EcosystemManager.Instance.CumulativeData.totalRewardGiven += scaled;
         agent.AddReward(scaled);
     }
 
     /// <summary>Reward for predator consuming prey. Baseline: +5.0 for 0.6 units.</summary>
     public static void AddPredationReward(Agent agent, float amount)
     {
-        float scaled = 5.0f * amount / 0.6f;
+        float scaled = 3.0f * amount / 0.6f;
+        EcosystemManager.Instance.CumulativeData.totalRewardGiven += scaled;
         agent.AddReward(scaled);
     }
 
     /// <summary>Reward for Mating. Baseline: +0.2 for delta.</summary>
-    public static void AddMatingReward(Agent agent, float amount = 0.3f)
+    public static void AddMatingReward(Agent agent, float amount = 0.15f)
     {
+        EcosystemManager.Instance.CumulativeData.totalRewardGiven += amount;
+        EcosystemManager.Instance.CumulativeData.partialMatingReward += amount;
         agent.AddReward(amount);
     }
     /// <summary>Reward for Mating. Baseline: +5 for success.</summary>
     public static void AddMatingSuccessReward(Agent agent, float amount = 5f)
     {
+        EcosystemManager.Instance.CumulativeData.totalRewardGiven += amount;
+        EcosystemManager.Instance.CumulativeData.totalMating++;
         agent.AddReward(amount);
     }
 
     /// <summary>Negative reward for being hungry or thirsty each frame. Penalty scales with deficiency.</summary>
-    public static void AddDecayPenalty(Agent agent, float hunger, float thirst)
+    public static void ApplyVitalityReward(Agent agent, float hunger, float thirst)
     {
-        float penalty = ComputePenalty(hunger) + ComputePenalty(thirst);
-        penalty = Mathf.Clamp(penalty, -0.1f, 0f);        // ✱ stabilises PPO
-        agent.AddReward(penalty * Time.fixedDeltaTime);
+        // --- Reward Case: healthy levels ---
+        if (hunger > 0.7f && thirst > 0.7f)
+        {
+            float reward = (hunger - 0.7f) + (thirst - 0.7f); // max theoretical: (1.0 - 0.7) * 2 = 0.6
+            float scaledReward = Mathf.Clamp(reward, 0f, 0.1f) * Time.fixedDeltaTime;
+
+            EcosystemManager.Instance.CumulativeData.totalRewardGiven += scaledReward;
+            agent.AddReward(scaledReward);
+        }
+        // --- Penalty Case: undernourished or dehydrated ---
+        else
+        {
+            float penalty = ComputePenalty(hunger) + ComputePenalty(thirst);  // max ~ -0.2
+            float scaledPenalty = Mathf.Clamp(penalty, -0.1f, 0f) * Time.fixedDeltaTime;
+
+            EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += Mathf.Abs(scaledPenalty);
+            agent.AddReward(scaledPenalty);
+        }
     }
-    
-    /// <summary>Flat death penalty. Called once on death.</summary>
+
     public static void AddDeathPenalty(Agent agent)
     {
+        EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += 1f;
         agent.AddReward(-1f);
+    }
+
+    public static void AddCrowdedPenalty(Agent agent, int count)
+    {
+        float penalty = Mathf.Clamp01(count / 6f) * 0.05f;  // caps at -0.05
+        EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += penalty;
+        EcosystemManager.Instance.CumulativeData.crowdingPenalty += penalty;
+        agent.AddReward(-penalty);
     }
 
     /// <summary>Flat death penalty. Called once on death.</summary>
     public static void AddWallHitPenalty(Agent agent)
     {
+        EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += 0.5f;
         agent.AddReward(-0.5f);
-    }
-
-    /// <summary>Custom reward value for debugging or sparse events.</summary>
-    public static void AddCustom(Agent agent, float value)
-    {
-        agent.AddReward(value);
     }
 
     private static float ComputePenalty(float value)
@@ -1236,135 +1469,188 @@ public static class Stats
 
 
 --- FILE: Utilities\TagMask.cs ---
+using System;
+using System.Collections.Generic;
+using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEditorInternal;
 #endif
-using UnityEngine;
 
-[System.Serializable]
+[Serializable]
 public class TagMask
 {
-    [SerializeField, HideInInspector] private int mask;
+    [SerializeField]
+    private List<string> selectedTags = new List<string>();
 
-    /// <summary>Returns true if the given tag is selected in the mask.</summary>
+    private HashSet<string> _tagSet;
+
     public bool Contains(string tag)
     {
-        int index = GetTagIndex(tag);
-        return index >= 0 && (mask & (1 << index)) != 0;
+        EnsureCache();
+        return _tagSet.Contains(tag);
     }
 
-    /// <summary>Build a tag mask from selected tag names.</summary>
-    public void SetSelectedTags(string[] selectedTags)
-    {
-        mask = 0;
-        foreach (var tag in selectedTags)
-        {
-            int index = GetTagIndex(tag);
-            if (index >= 0)
-                mask |= 1 << index;
-        }
-    }
-
-    /// <summary>Returns all selected tag names.</summary>
     public string[] GetSelectedTags()
     {
-        var allTags = UnityEditorInternal.InternalEditorUtility.tags;
-        var result = new System.Collections.Generic.List<string>();
-        for (int i = 0; i < allTags.Length; i++)
-        {
-            if ((mask & (1 << i)) != 0)
-                result.Add(allTags[i]);
-        }
-        return result.ToArray();
+        return selectedTags.ToArray();
     }
 
-    private int GetTagIndex(string tag)
+    public void SetSelectedTags(string[] tags)
     {
-        var allTags = UnityEditorInternal.InternalEditorUtility.tags;
-        for (int i = 0; i < allTags.Length; i++)
-        {
-            if (allTags[i] == tag) return i;
-        }
-        return -1;
+        selectedTags = new List<string>(tags);
+        _tagSet = null; // reset cache
     }
 
-    public int RawMask => mask;
-    public void SetRawMask(int raw) => mask = raw;
+    private void EnsureCache()
+    {
+        _tagSet ??= new HashSet<string>(selectedTags);
+    }
 }
 
-
 #if UNITY_EDITOR
+
 [CustomPropertyDrawer(typeof(TagMask))]
 public class TagMaskDrawer : PropertyDrawer
 {
     public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
     {
-        var rawMaskProp = property.FindPropertyRelative("mask");
+        var tagListProp = property.FindPropertyRelative("selectedTags");
+        string[] allTags = InternalEditorUtility.tags;
 
-        string[] tags = InternalEditorUtility.tags;
-        int currentMask = rawMaskProp.intValue;
+        int currentMask = 0;
+        for (int i = 0; i < allTags.Length; i++)
+        {
+            if (tagListProp.Contains(allTags[i]))
+                currentMask |= 1 << i;
+        }
 
-        int newMask = EditorGUI.MaskField(position, label, currentMask, tags);
+        int newMask = EditorGUI.MaskField(position, label, currentMask, allTags);
         if (newMask != currentMask)
-            rawMaskProp.intValue = newMask;
+        {
+            tagListProp.ClearArray();
+            for (int i = 0; i < allTags.Length; i++)
+            {
+                if ((newMask & (1 << i)) != 0)
+                {
+                    int index = tagListProp.arraySize;
+                    tagListProp.InsertArrayElementAtIndex(index);
+                    tagListProp.GetArrayElementAtIndex(index).stringValue = allTags[i];
+                }
+            }
+        }
+    }
+}
+
+public static class SerializedPropertyExtensions
+{
+    public static bool Contains(this SerializedProperty list, string value)
+    {
+        for (int i = 0; i < list.arraySize; i++)
+        {
+            if (list.GetArrayElementAtIndex(i).stringValue == value)
+                return true;
+        }
+        return false;
     }
 }
 #endif
 
 --- FILE: Utilities\Telemetry.cs ---
-// Utilities/Telemetry.cs
 using System.IO;
-using Unity.MLAgents;
 using UnityEngine;
 
 public class Telemetry : Singleton<Telemetry>
 {
-    string csvPath;
-    StreamWriter writer;
+    private string csvPath;
+    private StreamWriter writer;
+    private EpisodeMetrics lastRecordedData;
+    private double episodeStartTime = 0.0;
 
-    protected override void Awake()
+    private void Start()
     {
-        base.Awake();
+        int suffix = -1;
+        #if UNITY_EDITOR
+        string rootPath = Path.GetFullPath(Path.Combine(Application.dataPath, "../"));
+        #else
+        string rootPath = Path.GetFullPath(Path.Combine(Application.dataPath, "../../"));
+        int pid = System.Diagnostics.Process.GetCurrentProcess().Id;
+        suffix = pid;
+        #endif
 
-        // Create folder if it doesn't exist
-        string telemetryDir = Path.Combine(Application.dataPath, "Telemetry");
+        string telemetryDir = Path.Combine(rootPath, "Assets", "Telemetry");
+
         if (!Directory.Exists(telemetryDir))
             Directory.CreateDirectory(telemetryDir);
+        string environmentDir = Path.Combine(telemetryDir, EcosystemManager.Instance.Environment.name);
+        if (!Directory.Exists(environmentDir))
+            Directory.CreateDirectory(environmentDir);
 
-        csvPath = Path.Combine(telemetryDir, $"ecosim_{System.DateTime.Now:yyyyMMdd_HHmmss}.csv");
-
+        if(suffix==-1)
+        csvPath = Path.Combine(environmentDir, $"eco-log-{System.DateTime.Now:yyyyMMdd_HHmm}.csv");
+        else
+        csvPath = Path.Combine(environmentDir, $"eco-log-{System.DateTime.Now:yyyyMMdd_HHmm}_{suffix}.csv");
         writer = new StreamWriter(csvPath);
-        writer.WriteLine("episode,startTime,endTime,aliveTime,spawned,dead,rewardSum");
+
+        writer.WriteLine("episode,startTime,endTime,aliveTime," +
+                         "totalRewardGiven,totalPenaltyGiven,crowdingPenalty," +
+                         "totalPreySpawned,totalPredatorsSpawned," +
+                         "foodConsumed,waterConsumed," +
+                         "totalMating,partialMatingReward," +
+                         "animalKilled,reachedLifeEnd,diedFromHunger,diedFromThirst");
+        writer.Flush(); // ✅ Force write to disk
 
         Debug.Log($"[Telemetry] Logging to: {csvPath}");
     }
 
-    /* ---------- environment level ---------- */
-    public int EpisodeIndex { get; private set; } = 0;
-    double episodeStart = 0.0;
-    int spawned = 0;
-    int dead = 0;
-    float rewardSum = 0f;
-
-    public void OnEpisodeBegin()
+    public void OnEpisodeStart()
     {
-        EpisodeIndex++;
-        episodeStart = Time.timeAsDouble;
-        spawned = dead = 0;
-        rewardSum = 0;
+        episodeStartTime = Time.timeAsDouble;
     }
 
-    public void OnAgentSpawn() => spawned++;
-    public void OnAgentDeath() => dead++;
-
-    public void AddReward(float r) => rewardSum += r;
-
-    public void OnEpisodeEnd()
+    public void OnEpisodeEnd(EpisodeMetrics snapshot)
     {
         double end = Time.timeAsDouble;
-        writer.WriteLine($"{EpisodeIndex},{episodeStart:F2},{end:F2},{end - episodeStart:F2}," +
-                         $"{spawned},{dead},{rewardSum:F3}");
+
+        // First episode → log raw snapshot
+        if (lastRecordedData == null)
+        {
+            lastRecordedData = snapshot.Clone();
+            writer.WriteLine($"{snapshot.totalEpisodes},{episodeStartTime},{end:F2},{end - episodeStartTime:F2}," +
+                             $"{snapshot.totalRewardGiven:F3}," +
+                             $"{snapshot.totalPenaltyGiven:F3}," +
+                             $"{snapshot.crowdingPenalty:F3}," +
+                             $"{snapshot.totalPreySpawned}," +
+                             $"{snapshot.totalPredatorsSpawned}," +
+                             $"{snapshot.foodConsumed}," +
+                             $"{snapshot.waterConsumed}," +
+                             $"{snapshot.totalMating}," +
+                             $"{snapshot.partialMatingReward:F3}," +
+                             $"{snapshot.animalKilled}," +
+                             $"{snapshot.reachedLifeEnd}," +
+                             $"{snapshot.diedFromHunger}," +
+                             $"{snapshot.diedFromThirst}");
+        }
+        else
+        {
+            double aliveTime = end - episodeStartTime;
+            writer.WriteLine($"{snapshot.totalEpisodes},{episodeStartTime:F2},{end:F2},{aliveTime:F2}," +
+                             $"{(snapshot.totalRewardGiven - lastRecordedData.totalRewardGiven):F3}," +
+                             $"{(snapshot.totalPenaltyGiven - lastRecordedData.totalPenaltyGiven):F3}," +
+                             $"{(snapshot.crowdingPenalty - lastRecordedData.crowdingPenalty):F3}," +
+                             $"{snapshot.totalPreySpawned - lastRecordedData.totalPreySpawned}," +
+                             $"{snapshot.totalPredatorsSpawned - lastRecordedData.totalPredatorsSpawned}," +
+                             $"{snapshot.foodConsumed - lastRecordedData.foodConsumed}," +
+                             $"{snapshot.waterConsumed - lastRecordedData.waterConsumed}," +
+                             $"{snapshot.totalMating - lastRecordedData.totalMating}," +
+                             $"{(snapshot.partialMatingReward - lastRecordedData.partialMatingReward):F3}," +
+                             $"{snapshot.animalKilled - lastRecordedData.animalKilled}," +
+                             $"{snapshot.reachedLifeEnd - lastRecordedData.reachedLifeEnd}," +
+                             $"{snapshot.diedFromHunger - lastRecordedData.diedFromHunger}," +
+                             $"{snapshot.diedFromThirst - lastRecordedData.diedFromThirst}");
+        }
+
+        lastRecordedData = snapshot.Clone(); // move reference forward
         writer.Flush();
     }
 
@@ -1372,5 +1658,10 @@ public class Telemetry : Singleton<Telemetry>
     {
         base.OnDestroy();
         writer?.Close();
+    }
+
+    public EpisodeMetrics GetLastSnapshot()
+    {
+        return lastRecordedData;
     }
 }

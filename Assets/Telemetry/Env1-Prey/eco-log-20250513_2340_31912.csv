@@ -1,0 +1,4 @@
+episode,startTime,endTime,aliveTime,totalRewardGiven,totalPenaltyGiven,crowdingPenalty,totalPreySpawned,totalPredatorsSpawned,foodConsumed,waterConsumed,totalMating,partialMatingReward,animalKilled,reachedLifeEnd,diedFromHunger,diedFromThirst
+1,0,59.98,59.98,42.030,53.113,0.483,20,0,7,1,0,0.000,0,3,13,4
+2,59.98,119.70,59.72,43.344,33.238,0.417,20,0,7,2,0,0.000,0,0,13,7
+3,119.70,179.70,60.00,43.237,28.783,0.000,20,0,7,1,0,0.000,0,1,14,5

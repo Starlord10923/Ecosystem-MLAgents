@@ -5,9 +5,14 @@ using UnityEngine;
 public abstract class AgentAnimalBase : AgentBase
 {
     public enum AnimalType { Prey, Predator }
+    public enum DeathReason { Unknown, Starvation, Dehydration, Natural }
+
     public AnimalType animalType;
+    public DeathReason ReasonOfDeath = DeathReason.Unknown;
     private CoroutineHandle currentConsumption;
     private Collider currentTarget = null;
+    public int Parent1ID = -1;
+    public int Parent2ID = -1;
 
     private CoroutineHandle matingCoroutine;
     private bool IsMating => matingCoroutine.IsRunning;
@@ -147,9 +152,9 @@ public abstract class AgentAnimalBase : AgentBase
         partner.animalBar.UpdateFromStats();
 
         // Create inherited child
-        AgentStats childStats = GeneticUtility.Inherit(stats, partner.stats);
+        AgentStats childStats = GeneticUtility.Inherit(stats, partner.stats, GetCumulativeReward(), partner.GetCumulativeReward());
         Vector3 spawnPos = (transform.position + partner.transform.position) / 2f;
-        EcosystemManager.Instance.SpawnAnimal(this, childStats, spawnPos);
+        EcosystemManager.Instance.SpawnAnimal(this, partner, childStats, spawnPos);
 
         RewardUtility.AddMatingSuccessReward(this);
     }
@@ -181,6 +186,7 @@ public abstract class AgentAnimalBase : AgentBase
     public override void Die()
     {
         RewardUtility.AddDeathPenalty(this);
+        Telemetry.Instance.LogAgentStats(this);
         base.Die();
 
         StopCurrentConsumption();
