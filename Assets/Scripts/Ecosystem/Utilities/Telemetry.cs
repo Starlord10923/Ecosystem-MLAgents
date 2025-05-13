@@ -38,16 +38,17 @@ public class Telemetry : Singleton<Telemetry>
         csvPath = Path.Combine(runDir, $"eco-log.csv");
         writer = new StreamWriter(csvPath);
         writer.WriteLine("episode,startTime,endTime,aliveTime," +
-                         "totalRewardGiven,totalPenaltyGiven,crowdingPenalty," +
                          "totalPreySpawned,totalPredatorsSpawned," +
+                         "maxPreyGeneration,maxPredatorGeneration," +
                          "foodConsumed,waterConsumed," +
                          "totalMating,partialMatingReward," +
-                         "animalKilled,reachedLifeEnd,diedFromHunger,diedFromThirst");
+                         "animalKilled,reachedLifeEnd,diedFromHunger,diedFromThirst," +
+                         "totalRewardGiven,totalPenaltyGiven,crowdingPenalty");
         writer.Flush(); // ✅ Force write to disk
 
         agentCsvPath = Path.Combine(runDir, $"agentStats.csv");
         agentWriter = new StreamWriter(agentCsvPath);
-        agentWriter.WriteLine("episode,agentID,type,parents,generation,speed,sightRange,maxSize,maxLifetime,age,reasonOfDeath,episodeLifetimeScore");
+        agentWriter.WriteLine("episode,agentID,type,parents,generation,speed,sightRange,maxSize,maxLifetime,age,reasonOfDeath,lifetimeScore");
 
         agentWriter.Flush();
 
@@ -67,12 +68,11 @@ public class Telemetry : Singleton<Telemetry>
         if (lastRecordedData == null)
         {
             lastRecordedData = snapshot.Clone();
-            writer.WriteLine($"{snapshot.totalEpisodes},{episodeStartTime},{end:F2},{end - episodeStartTime:F2}," +
-                             $"{snapshot.totalRewardGiven:F3}," +
-                             $"{snapshot.totalPenaltyGiven:F3}," +
-                             $"{snapshot.crowdingPenalty:F3}," +
+            writer.WriteLine($"{snapshot.totalEpisodes},{episodeStartTime:F2},{end:F2},{end - episodeStartTime:F2:F2}," +
                              $"{snapshot.totalPreySpawned}," +
                              $"{snapshot.totalPredatorsSpawned}," +
+                             $"{snapshot.highestPreyGeneration}," +
+                             $"{snapshot.highestPredatorGeneration}," +
                              $"{snapshot.foodConsumed}," +
                              $"{snapshot.waterConsumed}," +
                              $"{snapshot.totalMating}," +
@@ -80,17 +80,19 @@ public class Telemetry : Singleton<Telemetry>
                              $"{snapshot.animalKilled}," +
                              $"{snapshot.reachedLifeEnd}," +
                              $"{snapshot.diedFromHunger}," +
-                             $"{snapshot.diedFromThirst}");
+                             $"{snapshot.diedFromThirst}," +
+                             $"{snapshot.totalRewardGiven:F3}," +
+                             $"{snapshot.totalPenaltyGiven:F3}," +
+                             $"{snapshot.crowdingPenalty:F3}");
         }
         else
         {
             double aliveTime = end - episodeStartTime;
             writer.WriteLine($"{snapshot.totalEpisodes},{episodeStartTime:F2},{end:F2},{aliveTime:F2}," +
-                             $"{(snapshot.totalRewardGiven - lastRecordedData.totalRewardGiven):F3}," +
-                             $"{(snapshot.totalPenaltyGiven - lastRecordedData.totalPenaltyGiven):F3}," +
-                             $"{(snapshot.crowdingPenalty - lastRecordedData.crowdingPenalty):F3}," +
                              $"{snapshot.totalPreySpawned - lastRecordedData.totalPreySpawned}," +
                              $"{snapshot.totalPredatorsSpawned - lastRecordedData.totalPredatorsSpawned}," +
+                             $"{snapshot.highestPreyGeneration}," +
+                             $"{snapshot.highestPredatorGeneration}," +
                              $"{snapshot.foodConsumed - lastRecordedData.foodConsumed}," +
                              $"{snapshot.waterConsumed - lastRecordedData.waterConsumed}," +
                              $"{snapshot.totalMating - lastRecordedData.totalMating}," +
@@ -98,7 +100,10 @@ public class Telemetry : Singleton<Telemetry>
                              $"{snapshot.animalKilled - lastRecordedData.animalKilled}," +
                              $"{snapshot.reachedLifeEnd - lastRecordedData.reachedLifeEnd}," +
                              $"{snapshot.diedFromHunger - lastRecordedData.diedFromHunger}," +
-                             $"{snapshot.diedFromThirst - lastRecordedData.diedFromThirst}");
+                             $"{snapshot.diedFromThirst - lastRecordedData.diedFromThirst}," +
+                             $"{(snapshot.totalRewardGiven - lastRecordedData.totalRewardGiven):F3}," +
+                             $"{(snapshot.totalPenaltyGiven - lastRecordedData.totalPenaltyGiven):F3}," +
+                             $"{(snapshot.crowdingPenalty - lastRecordedData.crowdingPenalty):F3}");
         }
 
         lastRecordedData = snapshot.Clone(); // move reference forward

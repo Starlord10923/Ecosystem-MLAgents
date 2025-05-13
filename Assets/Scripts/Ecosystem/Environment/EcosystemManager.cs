@@ -136,6 +136,8 @@ public class EcosystemManager : Singleton<EcosystemManager>
         CumulativeData.totalEpisodes += 1;
 
         Telemetry.Instance.OnEpisodeEnd(CumulativeData);
+        CumulativeData.highestPreyGeneration = 0;
+        CumulativeData.highestPredatorGeneration = 0;
 
         // Cache to avoid modifying collection during iteration
         var allAnimals = new List<AgentAnimalBase>(FindObjectsByType<AgentAnimalBase>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID));

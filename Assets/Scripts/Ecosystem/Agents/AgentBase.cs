@@ -61,6 +61,12 @@ public class AgentBase : Agent
                          Random.Range(50f, 70f)); // MaxLifetime
         }
 
+        AgentAnimalBase animal = GetComponent<AgentAnimalBase>();
+        if (animal.animalType == AgentAnimalBase.AnimalType.Prey)
+            EcosystemManager.Instance.CumulativeData.highestPreyGeneration = Mathf.Max(stats.Generation, EcosystemManager.Instance.CumulativeData.highestPreyGeneration);
+        else if (animal.animalType == AgentAnimalBase.AnimalType.Predator)
+            EcosystemManager.Instance.CumulativeData.highestPredatorGeneration = Mathf.Max(stats.Generation, EcosystemManager.Instance.CumulativeData.highestPredatorGeneration);
+
         maxSpeed = stats.speed;
         transform.localScale = Vector3.one * stats.CurrentSize;
         animalBar.SetStats(stats);
