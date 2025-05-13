@@ -113,9 +113,12 @@ public class Telemetry : Singleton<Telemetry>
                       agent.animalType == AgentAnimalBase.AnimalType.Predator ? "Predator" : "Unknown";
         EpisodeMetrics EM = EcosystemManager.Instance.CumulativeData;
         var stats = agent.stats;
+        string parentIDs = (agent.Parent1ID == agent.Parent2ID)
+            ? "-1"
+            : $"[{agent.Parent1ID} {agent.Parent2ID}]";
 
         agentStatsBuffer.Add($"{EM.totalEpisodes},{agent.GetInstanceID()},{type}," +
-                             $"\"{agent.Parent1ID} {agent.Parent2ID}\"" +
+                             $"{parentIDs}," +
                              $"{stats.Generation}," +
                              $"{stats.speed:F3},{stats.sightRange:F3},{stats.maxSize:F3}," +
                              $"{stats.MaxLifetime:F3},{stats.age:F3}," +

@@ -531,7 +531,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Environment: {fileID: 2769830148051336634}
   bounds: {x: 45, y: 45}
-  UseHeuristicControl: 1
+  UseHeuristicControl: 0
   UseBrain: 0
   PreyBrain: {fileID: 0}
   PredatorBrain: {fileID: 0}
