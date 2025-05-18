@@ -78,8 +78,21 @@ public static class RewardUtility
         }
     }
 
-    public static void AddDeathPenalty(Agent agent)
+    // Penalty/Rewards based on if agent had children/died naturally
+    public static void AddDeathPenalty(AgentAnimalBase agent)
     {
+        if (agent.stats.numChildren > 0 && agent.ReasonOfDeath == AgentAnimalBase.DeathReason.Natural)
+        {
+            EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += agent.stats.numChildren / 2f;
+            agent.AddReward(Mathf.Clamp01(agent.stats.numChildren / 2f));
+            return;
+        }
+        if (agent.ReasonOfDeath == AgentAnimalBase.DeathReason.Natural)
+        {
+            EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += 0.3f;
+            agent.AddReward(Mathf.Clamp01(0.3f));
+            return;
+        }
         EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += 1f;
         agent.AddReward(-1f);
     }

@@ -1,4 +1,5 @@
 using Unity.MLAgents.Actuators;
+using Unity.MLAgents.Sensors;
 using UnityEngine;
 
 public class PredatorAgent : AgentAnimalBase
@@ -16,15 +17,30 @@ public class PredatorAgent : AgentAnimalBase
         rb.velocity = Vector3.zero;
     }
 
-    public override void CollectObservations(Unity.MLAgents.Sensors.VectorSensor sensor)
+    public override void CollectObservations(VectorSensor sensor)
     {
+        // Vital stats
         sensor.AddObservation(stats.hunger);
         sensor.AddObservation(stats.thirst);
-        sensor.AddObservation(stats.CanMate ? 1f : 0f);
+        sensor.AddObservation(stats.health);
+
+        // Perception & physical traits
+        sensor.AddObservation(stats.sightRange);
         sensor.AddObservation(stats.CurrentSize / 3f);
         sensor.AddObservation(stats.maxSize / 3f);
         sensor.AddObservation(stats.speed / 5f);
-        sensor.AddObservation(stats.MaxLifetime - stats.age);
+
+        // Lifecycle & reproduction
+        sensor.AddObservation(stats.CanMate ? 1f : 0f);
+        sensor.AddObservation(Mathf.Clamp01(stats.age / stats.growthTime));     // growth progress
+        sensor.AddObservation(stats.age / stats.MaxLifetime);                   // life progress
+        sensor.AddObservation(Mathf.Clamp01(stats.numChildren / 10f));          // normalized offspring count
+
+        // Motion & orientation
+        sensor.AddObservation(rb.velocity.x / maxSpeed);
+        sensor.AddObservation(rb.velocity.z / maxSpeed);
+        sensor.AddObservation(transform.forward.x);
+        sensor.AddObservation(transform.forward.z);
     }
 
     public override void OnActionReceived(ActionBuffers actions)

@@ -119,22 +119,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   stats:
-    hunger: 1
-    thirst: 1
-    health: 1
     speed: 0
     sightRange: 0
     maxSize: 0
+    MaxLifetime: 60
+    growthTime: 20
+    Generation: 0
+    hunger: 1
+    thirst: 1
+    health: 1
+    age: 0
+    hungerPauseUntil: 0
+    thirstPauseUntil: 0
     hungerDecayRate: 0.005
     thirstDecayRate: 0.0075
     healthDecayRate: 0.005
     healthRegenRate: 0.01
-    MaxLifetime: 60
-    growthTime: 20
-    age: 0
-    Generation: 0
-    hungerPauseUntil: 0
-    thirstPauseUntil: 0
   hungerBar: {fileID: 9164539213848200977}
   thirstBar: {fileID: 4860859529843394619}
   healthBar: {fileID: 2870762200617867717}
@@ -832,7 +832,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 7
+    VectorObservationSize: 9
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 2
@@ -866,22 +866,22 @@ MonoBehaviour:
   hasUpgradedFromAgentParameters: 1
   MaxStep: 0
   stats:
-    hunger: 1
-    thirst: 1
-    health: 1
     speed: 1
     sightRange: 1
     maxSize: 1
+    MaxLifetime: 100
+    growthTime: 20
+    Generation: 0
+    hunger: 1
+    thirst: 1
+    health: 1
+    age: 0
+    hungerPauseUntil: 0
+    thirstPauseUntil: 0
     hungerDecayRate: 0.03
     thirstDecayRate: 0.02
     healthDecayRate: 0.01
     healthRegenRate: 0.02
-    MaxLifetime: 60
-    growthTime: 20
-    age: 0
-    Generation: 0
-    hungerPauseUntil: 0
-    thirstPauseUntil: 0
   maxSpeed: 0
   animalBar: {fileID: 7783868138811611985}
   animalType: 0

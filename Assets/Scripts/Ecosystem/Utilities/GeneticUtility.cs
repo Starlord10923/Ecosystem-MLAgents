@@ -22,7 +22,7 @@ public static class GeneticUtility
         float speed = Mathf.Clamp(InheritGene(p1.speed, p2.speed, rewardA, rewardB), 5f, 25f);
         float maxSize = Mathf.Clamp(InheritGene(p1.maxSize, p2.maxSize, rewardA, rewardB), 1f, 3.5f);
         float sightRange = Mathf.Clamp(InheritGene(p1.sightRange, p2.sightRange, rewardA, rewardB), 0.5f, 3f);
-        float maxLifetime = Mathf.Clamp(InheritGene(p1.MaxLifetime, p2.MaxLifetime, rewardA, rewardB), 30f, 100f);
+        float maxLifetime = Mathf.Clamp(InheritGene(p1.MaxLifetime, p2.MaxLifetime, rewardA, rewardB), 30f, 200f);
 
         var child = new AgentStats(speed, maxSize, sightRange, maxLifetime);
         child.Generation = Mathf.Max(p1.Generation, p2.Generation) + 1;

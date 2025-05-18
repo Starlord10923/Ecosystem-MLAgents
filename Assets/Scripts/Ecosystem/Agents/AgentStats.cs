@@ -32,6 +32,7 @@ public class AgentStats
 
     public bool IsAdult => age >= growthTime;
     public bool IsAlive => hunger > 0f && thirst > 0f && health > 0f && age < MaxLifetime;
+    public int numChildren = 0;
 
     public AgentStats() { }
 
@@ -89,6 +90,7 @@ public class AgentStats
     {
         DecreaseHunger(0.2f);
         DecreaseThirst(0.2f);
+        numChildren += 1;
     }
 
     public void DecreaseHunger(float value)
@@ -125,7 +127,8 @@ public class AgentStats
             age = 0f, // newborn
             Generation = source.Generation,
             hungerPauseUntil = 0f,
-            thirstPauseUntil = 0f
+            thirstPauseUntil = 0f,
+            numChildren = 0
         };
     }
 }

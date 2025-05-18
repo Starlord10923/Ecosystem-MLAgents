@@ -43,7 +43,7 @@ public class Telemetry : Singleton<Telemetry>
                          "maxPreyGeneration,maxPredatorGeneration," +
                          "foodConsumed,waterConsumed," +
                          "totalMating,partialMatingReward," +
-                         "animalKilled,reachedLifeEnd,diedFromHunger,diedFromThirst");
+                         "animalKilled,reachedLifeEnd,diedFromHunger,diedFromThirst,diedFromHealthOver");
         writer.Flush(); // ✅ Force write to disk
 
         agentCsvPath = Path.Combine(runDir, $"agentStats.csv");
@@ -84,7 +84,8 @@ public class Telemetry : Singleton<Telemetry>
                              $"{snapshot.animalKilled}," +
                              $"{snapshot.reachedLifeEnd}," +
                              $"{snapshot.diedFromHunger}," +
-                             $"{snapshot.diedFromThirst}");
+                             $"{snapshot.diedFromThirst},"+
+                             $"{snapshot.diedFromHealthOver}");
         }
         else
         {
@@ -103,7 +104,8 @@ public class Telemetry : Singleton<Telemetry>
                              $"{snapshot.animalKilled - lastRecordedData.animalKilled}," +
                              $"{snapshot.reachedLifeEnd - lastRecordedData.reachedLifeEnd}," +
                              $"{snapshot.diedFromHunger - lastRecordedData.diedFromHunger}," +
-                             $"{snapshot.diedFromThirst - lastRecordedData.diedFromThirst}");
+                             $"{snapshot.diedFromThirst - lastRecordedData.diedFromThirst},"+
+                             $"{snapshot.diedFromHealthOver - lastRecordedData.diedFromHealthOver}");
         }
 
         lastRecordedData = snapshot.Clone(); // move reference forward

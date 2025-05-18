@@ -556,6 +556,7 @@ MonoBehaviour:
     reachedLifeEnd: 0
     diedFromHunger: 0
     diedFromThirst: 0
+    diedFromHealthOver: 0
 --- !u!4 &1793235278
 Transform:
   m_ObjectHideFlags: 0

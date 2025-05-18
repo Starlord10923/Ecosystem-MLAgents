@@ -5,7 +5,7 @@ using UnityEngine;
 public abstract class AgentAnimalBase : AgentBase
 {
     public enum AnimalType { Prey, Predator }
-    public enum DeathReason { Unknown, Starvation, Dehydration, Natural }
+    public enum DeathReason { Unknown, Starvation, Dehydration, HealthOver, Natural }
 
     public AnimalType animalType;
     public DeathReason ReasonOfDeath = DeathReason.Unknown;

@@ -249,6 +249,7 @@ public class EpisodeMetrics
     public int reachedLifeEnd = 0;
     public int diedFromHunger = 0;
     public int diedFromThirst = 0;
+    public int diedFromHealthOver = 0;
 
     public EpisodeMetrics Clone() => (EpisodeMetrics)MemberwiseClone();
 }

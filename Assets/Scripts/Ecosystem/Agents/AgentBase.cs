@@ -58,7 +58,7 @@ public class AgentBase : Agent
                          Random.Range(10f, 20f),  // speed
                          Random.Range(1.5f, 2.5f),  // maxSize
                          Random.Range(0.8f, 1.5f), // sightRange (keep in small bounds)
-                         Random.Range(50f, 70f)); // MaxLifetime
+                         Random.Range(90f, 110f)); // MaxLifetime
         }
 
         AgentAnimalBase animal = GetComponent<AgentAnimalBase>();
@@ -100,6 +100,11 @@ public class AgentBase : Agent
             {
                 EcosystemManager.Instance.CumulativeData.diedFromThirst += 1;
                 animal.ReasonOfDeath = AgentAnimalBase.DeathReason.Dehydration;
+            }
+            if (stats.health <= 0f)
+            {
+                EcosystemManager.Instance.CumulativeData.diedFromHealthOver += 1;
+                animal.ReasonOfDeath = AgentAnimalBase.DeathReason.HealthOver;
             }
             Die();
             return;
