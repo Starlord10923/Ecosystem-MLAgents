@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using DarkTonic.PoolBoss;
 using MEC;
 using UnityEngine;
 
@@ -52,15 +53,15 @@ public class SpawnerManager : Singleton<SpawnerManager>
     public void OnFoodConsumed() => activeFood--;
     public void OnWaterConsumed() => activeWater--;
     [Header("Dynamic Spawn Balancing")]
-    public float targetFoodPerPrey = 1.5f;
-    public float targetWaterPerPrey = 0.8f;
+    public float targetFoodPerPrey = 2.5f;
+    public float targetWaterPerPrey = 1.5f;
 
     void Start()
     {
-        PreyParent = new GameObject($"Spawned-Prey");
-        PredatorParent = new GameObject($"Spawned-Predator");
-        FoodParent = new GameObject($"Spawned-Food");
-        WaterParent = new GameObject($"Spawned-Water");
+        if (PreyParent == null) PreyParent = new GameObject($"Spawned-Prey");
+        if (PredatorParent == null) PredatorParent = new GameObject($"Spawned-Predator");
+        if (FoodParent == null) FoodParent = new GameObject($"Spawned-Food");
+        if (WaterParent == null) WaterParent = new GameObject($"Spawned-Water");
 
         activeFood = 0;
         activeWater = 0;
@@ -104,7 +105,11 @@ public class SpawnerManager : Singleton<SpawnerManager>
             if (pos == Vector3.positiveInfinity) continue;
 
             Quaternion rot = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
-            Instantiate(prefabs[idx], pos, rot, parent);
+
+            if (type == SpawnType.Food || type == SpawnType.Water)
+                PoolBoss.Spawn(prefabs[idx].transform, pos, rot, parent);
+            else
+                Instantiate(prefabs[idx], pos, rot, parent);
         }
     }
 
@@ -121,7 +126,11 @@ public class SpawnerManager : Singleton<SpawnerManager>
             Vector3 pos = GetValidSpawnPosition(prefab, quadrant);
             if (pos == Vector3.positiveInfinity) continue;
             Quaternion rot = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-            Instantiate(prefab, pos, rot, parent);
+
+            if (type == SpawnType.Food || type == SpawnType.Water)
+                PoolBoss.Spawn(prefab.transform, pos, rot, parent);
+            else
+                Instantiate(prefab, pos, rot, parent);
         }
     }
 
@@ -175,10 +184,6 @@ public class SpawnerManager : Singleton<SpawnerManager>
 
     public void Reinitialise()
     {
-        Destroy(PreyParent);
-        Destroy(PredatorParent);
-        Destroy(FoodParent);
-        Destroy(WaterParent);
         Timing.KillCoroutines(foodSpawnHandle);
         Timing.KillCoroutines(waterSpawnHandle);
         Start();               // fresh start

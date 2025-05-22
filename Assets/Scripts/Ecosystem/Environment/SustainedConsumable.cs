@@ -1,3 +1,4 @@
+using DarkTonic.PoolBoss;
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -20,10 +21,10 @@ public class SustainedConsumable : MonoBehaviour
     [HideInInspector] public float valuePerTick;
     [HideInInspector] public int totalTicks;
 
-    private void Awake()
+    private void OnEnable()
     {
         InitializeValues();
-        resourceBar = GetComponentInChildren<ResourceBar>();
+        resourceBar = GetComponentInChildren<ResourceBar>(includeInactive: true);
         resourceBar.SetConsumable(this);
 
         if (consumableType == Type.Food)
@@ -100,6 +101,11 @@ public class SustainedConsumable : MonoBehaviour
                     EcosystemManager.Instance.CumulativeData.animalKilled += 1;
                     break;
             }
+
+            if (consumableType == Type.Food || consumableType == Type.Water)
+                PoolBoss.Despawn(transform);
+            else
+                Destroy(gameObject);
         }
 
         return consumed;

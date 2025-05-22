@@ -5,11 +5,16 @@ public class AgentStats
 {    
     [Header("Genetic / Inherited Traits")]
     public float speed = 1f;
+    public static float maxPossibleSpeed = 20f;
     public float sightRange = 1f;
+    public static float maxPossibleSightRange = 2f;
     public float maxSize = 1f;
+    public static float maxPossibleSize = 3.5f;
     public float MaxLifetime = 60f;
+    public static float maxPossibleLifeTime = 120f;
     public float growthTime = 20f;
     [ReadOnly] public int Generation = 0;
+    
 
     [Header("Runtime State Variables")]
     [ReadOnly] public float hunger = 1f;

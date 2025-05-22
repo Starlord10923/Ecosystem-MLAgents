@@ -25,15 +25,15 @@ public class PredatorAgent : AgentAnimalBase
         sensor.AddObservation(stats.health);
 
         // Perception & physical traits
-        sensor.AddObservation(stats.sightRange);
-        sensor.AddObservation(stats.CurrentSize / 3f);
-        sensor.AddObservation(stats.maxSize / 3f);
-        sensor.AddObservation(stats.speed / 5f);
+        sensor.AddObservation(stats.sightRange / AgentStats.maxPossibleSightRange);
+        sensor.AddObservation(stats.CurrentSize / AgentStats.maxPossibleSize);
+        sensor.AddObservation(stats.maxSize / AgentStats.maxPossibleSize);
+        sensor.AddObservation(stats.speed / AgentStats.maxPossibleSpeed);
 
         // Lifecycle & reproduction
         sensor.AddObservation(stats.CanMate ? 1f : 0f);
         sensor.AddObservation(Mathf.Clamp01(stats.age / stats.growthTime));     // growth progress
-        sensor.AddObservation(stats.age / stats.MaxLifetime);                   // life progress
+        sensor.AddObservation(Mathf.Clamp01(stats.age / stats.MaxLifetime));    // life progress
         sensor.AddObservation(Mathf.Clamp01(stats.numChildren / 10f));          // normalized offspring count
 
         // Motion & orientation

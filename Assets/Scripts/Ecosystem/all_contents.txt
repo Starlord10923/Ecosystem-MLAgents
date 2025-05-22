@@ -2,15 +2,21 @@
 
 --- FILE: Agents\AgentAnimalBase.cs ---
 using System.Collections.Generic;
+using DarkTonic.PoolBoss;
 using MEC;
 using UnityEngine;
 
 public abstract class AgentAnimalBase : AgentBase
 {
     public enum AnimalType { Prey, Predator }
+    public enum DeathReason { Unknown, Starvation, Dehydration, HealthOver, Natural }
+
     public AnimalType animalType;
+    public DeathReason ReasonOfDeath = DeathReason.Unknown;
     private CoroutineHandle currentConsumption;
     private Collider currentTarget = null;
+    public int Parent1ID = -1;
+    public int Parent2ID = -1;
 
     private CoroutineHandle matingCoroutine;
     private bool IsMating => matingCoroutine.IsRunning;
@@ -35,7 +41,7 @@ public abstract class AgentAnimalBase : AgentBase
     {
         if (currentConsumption.IsRunning || !other.TryGetComponent<SustainedConsumable>(out var target))
             return;
-        if (animalType==AnimalType.Prey && target.consumableType == SustainedConsumable.Type.Prey)
+        if (animalType == AnimalType.Prey && target.consumableType == SustainedConsumable.Type.Prey)
             return;
 
         currentTarget = other;
@@ -107,7 +113,7 @@ public abstract class AgentAnimalBase : AgentBase
 
             if (target.remainingValue <= 0f && target.consumableType != SustainedConsumable.Type.Prey)
             {
-                Destroy(target.gameObject);
+                PoolBoss.Despawn(target.transform);
                 StopCurrentConsumption();
                 yield break;
             }
@@ -150,14 +156,14 @@ public abstract class AgentAnimalBase : AgentBase
         partner.animalBar.UpdateFromStats();
 
         // Create inherited child
-        AgentStats childStats = GeneticUtility.Inherit(stats, partner.stats);
+        AgentStats childStats = GeneticUtility.Inherit(stats, partner.stats, GetCumulativeReward(), partner.GetCumulativeReward());
         Vector3 spawnPos = (transform.position + partner.transform.position) / 2f;
-        EcosystemManager.Instance.SpawnAnimal(this, childStats, spawnPos);
+        EcosystemManager.Instance.SpawnAnimal(this, partner, childStats, spawnPos);
 
-        RewardUtility.AddMatingSuccessReward(this);
+        RewardUtility.AddMatingSuccessReward(this, partner);
     }
 
-    static readonly Collider[] probeHits = new Collider[8];   // tweak size as needed
+    static readonly Collider[] probeHits = new Collider[16];   // tweak size as needed
     public void PenalizeCrowding()
     {
         // No penalty for crowding if it can mate
@@ -184,6 +190,7 @@ public abstract class AgentAnimalBase : AgentBase
     public override void Die()
     {
         RewardUtility.AddDeathPenalty(this);
+        Telemetry.Instance.LogAgentStats(this);
         base.Die();
 
         StopCurrentConsumption();
@@ -285,10 +292,20 @@ public class AgentBase : Agent
 
     public virtual void InitializeStats(AgentStats inherited = null)
     {
-        stats = inherited ?? new AgentStats(
-                     Random.Range(10f, 20f),  // speed
-                     Random.Range(1.5f, 2.5f),  // maxSize
-                     Random.Range(0.8f, 1.5f)); // sightRange (keep in small bounds)
+        if (stats == null || stats.Generation == 0)
+        {
+            stats = inherited ?? new AgentStats(
+                         Random.Range(10f, AgentStats.maxPossibleSpeed),  // speed
+                         Random.Range(1.5f, AgentStats.maxPossibleSize),  // maxSize
+                         Random.Range(0.8f, 1.5f), // sightRange (keep in small bounds)
+                         Random.Range(90f, AgentStats.maxPossibleLifeTime)); // MaxLifetime
+        }
+
+        AgentAnimalBase animal = GetComponent<AgentAnimalBase>();
+        if (animal.animalType == AgentAnimalBase.AnimalType.Prey)
+            EcosystemManager.Instance.CumulativeData.highestPreyGeneration = Mathf.Max(stats.Generation, EcosystemManager.Instance.CumulativeData.highestPreyGeneration);
+        else if (animal.animalType == AgentAnimalBase.AnimalType.Predator)
+            EcosystemManager.Instance.CumulativeData.highestPredatorGeneration = Mathf.Max(stats.Generation, EcosystemManager.Instance.CumulativeData.highestPredatorGeneration);
 
         maxSpeed = stats.speed;
         transform.localScale = Vector3.one * stats.CurrentSize;
@@ -308,12 +325,27 @@ public class AgentBase : Agent
 
         if (!stats.IsAlive)
         {
+            AgentAnimalBase animal = GetComponent<AgentAnimalBase>();
             if (stats.LivedFullLife)
+            {
                 EcosystemManager.Instance.CumulativeData.reachedLifeEnd += 1;
-            if(stats.hunger<=0f)
+                animal.ReasonOfDeath = AgentAnimalBase.DeathReason.Natural;
+            }
+            if (stats.hunger <= 0f)
+            {
                 EcosystemManager.Instance.CumulativeData.diedFromHunger += 1;
-            if(stats.thirst<=0f)
+                animal.ReasonOfDeath = AgentAnimalBase.DeathReason.Starvation;
+            }
+            if (stats.thirst <= 0f)
+            {
                 EcosystemManager.Instance.CumulativeData.diedFromThirst += 1;
+                animal.ReasonOfDeath = AgentAnimalBase.DeathReason.Dehydration;
+            }
+            if (stats.health <= 0f)
+            {
+                EcosystemManager.Instance.CumulativeData.diedFromHealthOver += 1;
+                animal.ReasonOfDeath = AgentAnimalBase.DeathReason.HealthOver;
+            }
             Die();
             return;
         }
@@ -352,26 +384,33 @@ using UnityEngine;
 
 [System.Serializable]
 public class AgentStats
-{
-    public float hunger = 1f;
-    public float thirst = 1f;
-    public float health = 1f;
-
+{    
+    [Header("Genetic / Inherited Traits")]
     public float speed = 1f;
+    public static float maxPossibleSpeed = 20f;
     public float sightRange = 1f;
+    public static float maxPossibleSightRange = 2f;
     public float maxSize = 1f;
+    public static float maxPossibleSize = 3.5f;
+    public float MaxLifetime = 60f;
+    public static float maxPossibleLifeTime = 120f;
+    public float growthTime = 20f;
+    [ReadOnly] public int Generation = 0;
 
+    [Header("Runtime State Variables")]
+    [ReadOnly] public float hunger = 1f;
+    [ReadOnly] public float thirst = 1f;
+    [ReadOnly] public float health = 1f;
+    [ReadOnly] public float age = 0f;
+
+    [ReadOnly] public float hungerPauseUntil = 0f;
+    [ReadOnly] public float thirstPauseUntil = 0f;
+
+    [Header("Decay & Regeneration Rates")]
     public float hungerDecayRate = 0.03f;
     public float thirstDecayRate = 0.02f;
     public float healthDecayRate = 0.01f;
     public float healthRegenRate = 0.02f;
-
-    public float MaxLifetime = 60f;
-    public float growthTime = 20f;
-    public float age = 0f;
-
-    public float hungerPauseUntil = 0f;
-    public float thirstPauseUntil = 0f;
 
     public float CurrentSize => growthTime <= 0f
         ? maxSize
@@ -379,14 +418,16 @@ public class AgentStats
 
     public bool IsAdult => age >= growthTime;
     public bool IsAlive => hunger > 0f && thirst > 0f && health > 0f && age < MaxLifetime;
+    public int numChildren = 0;
 
     public AgentStats() { }
 
-    public AgentStats(float speed, float maxSize, float sightRange)
+    public AgentStats(float speed, float maxSize, float sightRange, float MaxLifetime)
     {
         this.speed = speed;
         this.maxSize = maxSize;
         this.sightRange = sightRange;
+        this.MaxLifetime = MaxLifetime;
     }
 
     public void TickDecay(float dt)
@@ -428,13 +469,14 @@ public class AgentStats
     public void IncreaseHealth(float amount)
     {
         health += amount;
-                health = Mathf.Clamp01(health);
+        health = Mathf.Clamp01(health);
     }
 
     public void Mate()
     {
         DecreaseHunger(0.2f);
         DecreaseThirst(0.2f);
+        numChildren += 1;
     }
 
     public void DecreaseHunger(float value)
@@ -469,8 +511,10 @@ public class AgentStats
             MaxLifetime = source.MaxLifetime,
             growthTime = source.growthTime,
             age = 0f, // newborn
+            Generation = source.Generation,
             hungerPauseUntil = 0f,
-            thirstPauseUntil = 0f
+            thirstPauseUntil = 0f,
+            numChildren = 0
         };
     }
 }
@@ -478,6 +522,7 @@ public class AgentStats
 
 --- FILE: Agents\PredatorAgent.cs ---
 using Unity.MLAgents.Actuators;
+using Unity.MLAgents.Sensors;
 using UnityEngine;
 
 public class PredatorAgent : AgentAnimalBase
@@ -495,15 +540,30 @@ public class PredatorAgent : AgentAnimalBase
         rb.velocity = Vector3.zero;
     }
 
-    public override void CollectObservations(Unity.MLAgents.Sensors.VectorSensor sensor)
+    public override void CollectObservations(VectorSensor sensor)
     {
+        // Vital stats
         sensor.AddObservation(stats.hunger);
         sensor.AddObservation(stats.thirst);
+        sensor.AddObservation(stats.health);
+
+        // Perception & physical traits
+        sensor.AddObservation(stats.sightRange / AgentStats.maxPossibleSightRange);
+        sensor.AddObservation(stats.CurrentSize / AgentStats.maxPossibleSize);
+        sensor.AddObservation(stats.maxSize / AgentStats.maxPossibleSize);
+        sensor.AddObservation(stats.speed / AgentStats.maxPossibleSpeed);
+
+        // Lifecycle & reproduction
         sensor.AddObservation(stats.CanMate ? 1f : 0f);
-        sensor.AddObservation(stats.CurrentSize / 3f);
-        sensor.AddObservation(stats.maxSize / 3f);
-        sensor.AddObservation(stats.speed / 5f);
-        sensor.AddObservation(stats.MaxLifetime - stats.age);
+        sensor.AddObservation(Mathf.Clamp01(stats.age / stats.growthTime));     // growth progress
+        sensor.AddObservation(Mathf.Clamp01(stats.age / stats.MaxLifetime));    // life progress
+        sensor.AddObservation(Mathf.Clamp01(stats.numChildren / 10f));          // normalized offspring count
+
+        // Motion & orientation
+        sensor.AddObservation(rb.velocity.x / maxSpeed);
+        sensor.AddObservation(rb.velocity.z / maxSpeed);
+        sensor.AddObservation(transform.forward.x);
+        sensor.AddObservation(transform.forward.z);
     }
 
     public override void OnActionReceived(ActionBuffers actions)
@@ -536,6 +596,7 @@ public class PredatorAgent : AgentAnimalBase
 
 --- FILE: Agents\PreyAgent.cs ---
 using Unity.MLAgents.Actuators;
+using Unity.MLAgents.Sensors;
 using UnityEngine;
 
 [RequireComponent(typeof(SustainedConsumable))]
@@ -555,15 +616,30 @@ public class PreyAgent : AgentAnimalBase
         rb.velocity = Vector3.zero;
     }
 
-    public override void CollectObservations(Unity.MLAgents.Sensors.VectorSensor sensor)
+    public override void CollectObservations(VectorSensor sensor)
     {
+        // Vital stats
         sensor.AddObservation(stats.hunger);
         sensor.AddObservation(stats.thirst);
+        sensor.AddObservation(stats.health);
+
+        // Perception & physical traits
+        sensor.AddObservation(stats.sightRange / AgentStats.maxPossibleSightRange);
+        sensor.AddObservation(stats.CurrentSize / AgentStats.maxPossibleSize);
+        sensor.AddObservation(stats.maxSize / AgentStats.maxPossibleSize);
+        sensor.AddObservation(stats.speed / AgentStats.maxPossibleSpeed);
+
+        // Lifecycle & reproduction
         sensor.AddObservation(stats.CanMate ? 1f : 0f);
-        sensor.AddObservation(stats.CurrentSize / 3f);
-        sensor.AddObservation(stats.maxSize / 3f);
-        sensor.AddObservation(stats.speed / 5f);
-        sensor.AddObservation(stats.MaxLifetime - stats.age);
+        sensor.AddObservation(Mathf.Clamp01(stats.age / stats.growthTime));     // growth progress
+        sensor.AddObservation(Mathf.Clamp01(stats.age / stats.MaxLifetime));    // life progress
+        sensor.AddObservation(Mathf.Clamp01(stats.numChildren / 10f));          // normalized offspring count
+
+        // Motion & orientation
+        sensor.AddObservation(rb.velocity.x / maxSpeed);
+        sensor.AddObservation(rb.velocity.z / maxSpeed);
+        sensor.AddObservation(transform.forward.x);
+        sensor.AddObservation(transform.forward.z);
     }
 
     public override void OnActionReceived(ActionBuffers actions)
@@ -650,6 +726,7 @@ public class AnimalBar : MonoBehaviour
 
 --- FILE: Environment\EcosystemManager.cs ---
 using System.Collections.Generic;
+using DarkTonic.PoolBoss;
 using Unity.Barracuda;
 using UnityEngine;
 
@@ -667,7 +744,7 @@ public class EcosystemManager : Singleton<EcosystemManager>
     public bool showValues = false;
 
     /* ─── Active-agent tracking ─── */
-    private readonly HashSet<AgentBase> liveAgents = new();
+    public HashSet<AgentBase> liveAgents = new();
     private bool isResettingEnvironment = false;
 
     [Header("Ecosystem Metrics")]
@@ -678,6 +755,10 @@ public class EcosystemManager : Singleton<EcosystemManager>
         base.Awake();
         if (!UseHeuristicControl && UseBrain)
             Time.timeScale = TimeScale;
+
+#if !UNITY_EDITOR
+        UnityEngine.Debug.unityLogger.logEnabled = false;        
+#endif
     }
 
     public void Register(AgentBase agent)
@@ -757,9 +838,9 @@ public class EcosystemManager : Singleton<EcosystemManager>
         return center + new Vector3(x, 1f, z);
     }
 
-    public void SpawnAnimal(AgentAnimalBase parent, AgentStats childStats, Vector3 spawnPos)
+    public void SpawnAnimal(AgentAnimalBase parent1,AgentAnimalBase parent2, AgentStats childStats, Vector3 spawnPos)
     {
-        var isPrey = parent.animalType == AgentAnimalBase.AnimalType.Prey;
+        var isPrey = parent1.animalType == AgentAnimalBase.AnimalType.Prey;
         var prefabList = isPrey ? SpawnerManager.Instance.preyPrefabs : SpawnerManager.Instance.predatorPrefabs;
         var parentTransform = isPrey ? SpawnerManager.Instance.PreyParent.transform : SpawnerManager.Instance.PredatorParent.transform;
 
@@ -769,6 +850,11 @@ public class EcosystemManager : Singleton<EcosystemManager>
         if (child.TryGetComponent(out AgentBase agentBase))
         {
             agentBase.InitializeStats(AgentStats.Clone(childStats));   // newborn stats
+        }
+        if (child.TryGetComponent(out AgentAnimalBase agentAnimal))
+        {
+            agentAnimal.Parent1ID = parent1.GetInstanceID();
+            agentAnimal.Parent2ID = parent2.GetInstanceID();
         }
     }
 
@@ -782,6 +868,8 @@ public class EcosystemManager : Singleton<EcosystemManager>
         CumulativeData.totalEpisodes += 1;
 
         Telemetry.Instance.OnEpisodeEnd(CumulativeData);
+        CumulativeData.highestPreyGeneration = 0;
+        CumulativeData.highestPredatorGeneration = 0;
 
         // Cache to avoid modifying collection during iteration
         var allAnimals = new List<AgentAnimalBase>(FindObjectsByType<AgentAnimalBase>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID));
@@ -790,7 +878,10 @@ public class EcosystemManager : Singleton<EcosystemManager>
 
         var allConsumables = new List<SustainedConsumable>(FindObjectsByType<SustainedConsumable>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID));
         foreach (var consumable in allConsumables)
-            Destroy(consumable.gameObject);
+        {
+            if (consumable == null || consumable.consumableType == SustainedConsumable.Type.Prey) continue;
+            PoolBoss.Despawn(consumable.transform);
+        }
 
         liveAgents.Clear(); // explicit clear, no need to re-unregister on destroy
 
@@ -885,12 +976,15 @@ public class EpisodeMetrics
     [Header("Reproduction Metrics")]
     public int totalMating = 0;
     public float partialMatingReward = 0f;
+    public int highestPreyGeneration = 0;
+    public int highestPredatorGeneration = 0;
 
     [Header("Mortality Stats")]
     public int animalKilled = 0;
     public int reachedLifeEnd = 0;
     public int diedFromHunger = 0;
     public int diedFromThirst = 0;
+    public int diedFromHealthOver = 0;
 
     public EpisodeMetrics Clone() => (EpisodeMetrics)MemberwiseClone();
 }
@@ -924,6 +1018,7 @@ public class ResourceBar : MonoBehaviour
 
 --- FILE: Environment\SpawnerManager.cs ---
 using System.Collections.Generic;
+using DarkTonic.PoolBoss;
 using MEC;
 using UnityEngine;
 
@@ -977,15 +1072,15 @@ public class SpawnerManager : Singleton<SpawnerManager>
     public void OnFoodConsumed() => activeFood--;
     public void OnWaterConsumed() => activeWater--;
     [Header("Dynamic Spawn Balancing")]
-    public float targetFoodPerPrey = 1.5f;
-    public float targetWaterPerPrey = 0.8f;
+    public float targetFoodPerPrey = 2.5f;
+    public float targetWaterPerPrey = 1.5f;
 
     void Start()
     {
-        PreyParent = new GameObject($"Spawned-Prey");
-        PredatorParent = new GameObject($"Spawned-Predator");
-        FoodParent = new GameObject($"Spawned-Food");
-        WaterParent = new GameObject($"Spawned-Water");
+        if (PreyParent == null) PreyParent = new GameObject($"Spawned-Prey");
+        if (PredatorParent == null) PredatorParent = new GameObject($"Spawned-Predator");
+        if (FoodParent == null) FoodParent = new GameObject($"Spawned-Food");
+        if (WaterParent == null) WaterParent = new GameObject($"Spawned-Water");
 
         activeFood = 0;
         activeWater = 0;
@@ -1029,7 +1124,11 @@ public class SpawnerManager : Singleton<SpawnerManager>
             if (pos == Vector3.positiveInfinity) continue;
 
             Quaternion rot = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
-            Instantiate(prefabs[idx], pos, rot, parent);
+
+            if (type == SpawnType.Food || type == SpawnType.Water)
+                PoolBoss.Spawn(prefabs[idx].transform, pos, rot, parent);
+            else
+                Instantiate(prefabs[idx], pos, rot, parent);
         }
     }
 
@@ -1046,7 +1145,11 @@ public class SpawnerManager : Singleton<SpawnerManager>
             Vector3 pos = GetValidSpawnPosition(prefab, quadrant);
             if (pos == Vector3.positiveInfinity) continue;
             Quaternion rot = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-            Instantiate(prefab, pos, rot, parent);
+
+            if (type == SpawnType.Food || type == SpawnType.Water)
+                PoolBoss.Spawn(prefab.transform, pos, rot, parent);
+            else
+                Instantiate(prefab, pos, rot, parent);
         }
     }
 
@@ -1100,10 +1203,6 @@ public class SpawnerManager : Singleton<SpawnerManager>
 
     public void Reinitialise()
     {
-        Destroy(PreyParent);
-        Destroy(PredatorParent);
-        Destroy(FoodParent);
-        Destroy(WaterParent);
         Timing.KillCoroutines(foodSpawnHandle);
         Timing.KillCoroutines(waterSpawnHandle);
         Start();               // fresh start
@@ -1155,6 +1254,7 @@ public class SpawnerManager : Singleton<SpawnerManager>
 
 
 --- FILE: Environment\SustainedConsumable.cs ---
+using DarkTonic.PoolBoss;
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -1177,7 +1277,7 @@ public class SustainedConsumable : MonoBehaviour
     [HideInInspector] public float valuePerTick;
     [HideInInspector] public int totalTicks;
 
-    private void Awake()
+    private void OnEnable()
     {
         InitializeValues();
         resourceBar = GetComponentInChildren<ResourceBar>();
@@ -1257,6 +1357,11 @@ public class SustainedConsumable : MonoBehaviour
                     EcosystemManager.Instance.CumulativeData.animalKilled += 1;
                     break;
             }
+
+            // if (consumableType == Type.Food || consumableType == Type.Water)
+            //     PoolBoss.Despawn(transform);
+            // else
+            //     Destroy(gameObject);
         }
 
         return consumed;
@@ -1335,24 +1440,37 @@ using UnityEngine;
 
 public static class GeneticUtility
 {
-    public static float Blend(float a, float b, float mutationRange = 0.05f)
+    private static float InheritGene(float a, float b, float fitnessA, float fitnessB, float mutationRange = 0.05f)
     {
-        float baseValue = Mathf.Lerp(a, b, Random.value);
-        return baseValue + Random.Range(-mutationRange, mutationRange);
+        float totalFitness = fitnessA + fitnessB + 1e-6f; // prevent div0
+        float weight = fitnessA / totalFitness; // favor better parent
+
+        float baseValue = Mathf.Lerp(a, b, weight);
+        float mutation = Random.Range(-mutationRange, mutationRange);
+
+        // Rare large mutation event
+        if (Random.value < 0.01f)
+            mutation *= Random.Range(3f, 5f);
+
+        return baseValue + mutation;
     }
 
-    public static AgentStats Inherit(AgentStats p1, AgentStats p2)
+    public static AgentStats Inherit(AgentStats p1, AgentStats p2, float rewardA, float rewardB)
     {
-        float sRange = Mathf.Clamp(Blend(p1.sightRange, p2.sightRange), 0.5f, 3f);
-        return new AgentStats(
-            Blend(p1.speed, p2.speed),
-            Blend(p1.maxSize, p2.maxSize),
-            sRange);
+        float speed = Mathf.Clamp(InheritGene(p1.speed, p2.speed, rewardA, rewardB), 5f, 25f);
+        float maxSize = Mathf.Clamp(InheritGene(p1.maxSize, p2.maxSize, rewardA, rewardB), 1f, 3.5f);
+        float sightRange = Mathf.Clamp(InheritGene(p1.sightRange, p2.sightRange, rewardA, rewardB), 0.5f, 3f);
+        float maxLifetime = Mathf.Clamp(InheritGene(p1.MaxLifetime, p2.MaxLifetime, rewardA, rewardB), 30f, 200f);
+
+        var child = new AgentStats(speed, maxSize, sightRange, maxLifetime);
+        child.Generation = Mathf.Max(p1.Generation, p2.Generation) + 1;
+        return child;
     }
 }
 
 
 --- FILE: Utilities\RewardUtility.cs ---
+using System.Linq;
 using Unity.MLAgents;
 using UnityEngine;
 
@@ -1389,12 +1507,24 @@ public static class RewardUtility
         EcosystemManager.Instance.CumulativeData.partialMatingReward += amount;
         agent.AddReward(amount);
     }
-    /// <summary>Reward for Mating. Baseline: +5 for success.</summary>
-    public static void AddMatingSuccessReward(Agent agent, float amount = 5f)
+
+    /// <summary>Group Reward for Mating. Baseline: +5 for involved agents, +0.5 for all others.</summary>
+    public static void AddMatingSuccessReward(AgentAnimalBase agentA, AgentAnimalBase agentB, float localReward = 5f, float globalReward = 0.25f)
     {
-        EcosystemManager.Instance.CumulativeData.totalRewardGiven += amount;
+        var sameClassAgents = EcosystemManager.Instance.liveAgents
+            .Select(a => a.GetComponent<AgentAnimalBase>())
+            .Where(a => a != null && a != agentA && a != agentB && a.animalType == agentA.animalType);
+
+        EcosystemManager.Instance.CumulativeData.totalRewardGiven += (localReward * 2) + (globalReward * sameClassAgents.Count());
         EcosystemManager.Instance.CumulativeData.totalMating++;
-        agent.AddReward(amount);
+
+        agentA.AddReward(localReward);
+        agentB.AddReward(localReward);
+
+        foreach (var agent in sameClassAgents)
+        {
+            agent.AddReward(globalReward);
+        }
     }
 
     /// <summary>Negative reward for being hungry or thirsty each frame. Penalty scales with deficiency.</summary>
@@ -1404,7 +1534,7 @@ public static class RewardUtility
         if (hunger > 0.7f && thirst > 0.7f)
         {
             float reward = (hunger - 0.7f) + (thirst - 0.7f); // max theoretical: (1.0 - 0.7) * 2 = 0.6
-            float scaledReward = Mathf.Clamp(reward, 0f, 0.1f) * Time.fixedDeltaTime;
+            float scaledReward = Mathf.Clamp(reward, 0f, 0.05f) * Time.fixedDeltaTime;
 
             EcosystemManager.Instance.CumulativeData.totalRewardGiven += scaledReward;
             agent.AddReward(scaledReward);
@@ -1420,8 +1550,21 @@ public static class RewardUtility
         }
     }
 
-    public static void AddDeathPenalty(Agent agent)
+    // Penalty/Rewards based on if agent had children/died naturally
+    public static void AddDeathPenalty(AgentAnimalBase agent)
     {
+        if (agent.stats.numChildren > 0 && agent.ReasonOfDeath == AgentAnimalBase.DeathReason.Natural)
+        {
+            EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += agent.stats.numChildren / 2f;
+            agent.AddReward(Mathf.Clamp01(agent.stats.numChildren / 2f));
+            return;
+        }
+        if (agent.ReasonOfDeath == AgentAnimalBase.DeathReason.Natural)
+        {
+            EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += 0.3f;
+            agent.AddReward(Mathf.Clamp01(0.3f));
+            return;
+        }
         EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += 1f;
         agent.AddReward(-1f);
     }
@@ -1557,6 +1700,7 @@ public static class SerializedPropertyExtensions
 #endif
 
 --- FILE: Utilities\Telemetry.cs ---
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -1567,38 +1711,48 @@ public class Telemetry : Singleton<Telemetry>
     private EpisodeMetrics lastRecordedData;
     private double episodeStartTime = 0.0;
 
+    private string agentCsvPath;
+    private StreamWriter agentWriter;
+    private List<string> agentStatsBuffer = new();
+
     private void Start()
     {
         int suffix = -1;
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
         string rootPath = Path.GetFullPath(Path.Combine(Application.dataPath, "../"));
-        #else
+#else
         string rootPath = Path.GetFullPath(Path.Combine(Application.dataPath, "../../"));
-        int pid = System.Diagnostics.Process.GetCurrentProcess().Id;
-        suffix = pid;
-        #endif
+        suffix = System.Diagnostics.Process.GetCurrentProcess().Id;
+#endif
 
         string telemetryDir = Path.Combine(rootPath, "Assets", "Telemetry");
-
         if (!Directory.Exists(telemetryDir))
             Directory.CreateDirectory(telemetryDir);
         string environmentDir = Path.Combine(telemetryDir, EcosystemManager.Instance.Environment.name);
         if (!Directory.Exists(environmentDir))
             Directory.CreateDirectory(environmentDir);
+        string runDir = suffix == -1
+                ? Path.Combine(environmentDir, $"{System.DateTime.Now:yyyyMMdd_HHmm}")
+                : Path.Combine(environmentDir, $"{System.DateTime.Now:yyyyMMdd_HHmm}_{suffix}");
+        if (!Directory.Exists(runDir))
+            Directory.CreateDirectory(runDir);
 
-        if(suffix==-1)
-        csvPath = Path.Combine(environmentDir, $"eco-log-{System.DateTime.Now:yyyyMMdd_HHmm}.csv");
-        else
-        csvPath = Path.Combine(environmentDir, $"eco-log-{System.DateTime.Now:yyyyMMdd_HHmm}_{suffix}.csv");
+        csvPath = Path.Combine(runDir, $"eco-log.csv");
         writer = new StreamWriter(csvPath);
-
         writer.WriteLine("episode,startTime,endTime,aliveTime," +
                          "totalRewardGiven,totalPenaltyGiven,crowdingPenalty," +
                          "totalPreySpawned,totalPredatorsSpawned," +
+                         "maxPreyGeneration,maxPredatorGeneration," +
                          "foodConsumed,waterConsumed," +
                          "totalMating,partialMatingReward," +
-                         "animalKilled,reachedLifeEnd,diedFromHunger,diedFromThirst");
+                         "animalKilled,reachedLifeEnd,diedFromHunger,diedFromThirst,diedFromHealthOver");
         writer.Flush(); // ✅ Force write to disk
+
+        agentCsvPath = Path.Combine(runDir, $"agentStats.csv");
+        agentWriter = new StreamWriter(agentCsvPath);
+        agentWriter.WriteLine("episode,agentID,type,parents,generation,speed,sightRange,maxSize,maxLifetime,age,reasonOfDeath,lifetimeScore");
+
+        agentWriter.Flush();
 
         Debug.Log($"[Telemetry] Logging to: {csvPath}");
     }
@@ -1611,17 +1765,20 @@ public class Telemetry : Singleton<Telemetry>
     public void OnEpisodeEnd(EpisodeMetrics snapshot)
     {
         double end = Time.timeAsDouble;
+        double aliveTime = end - episodeStartTime;
 
         // First episode → log raw snapshot
         if (lastRecordedData == null)
         {
             lastRecordedData = snapshot.Clone();
-            writer.WriteLine($"{snapshot.totalEpisodes},{episodeStartTime},{end:F2},{end - episodeStartTime:F2}," +
+            writer.WriteLine($"{snapshot.totalEpisodes},{episodeStartTime:F2},{end:F2},{aliveTime:F2}," +
                              $"{snapshot.totalRewardGiven:F3}," +
                              $"{snapshot.totalPenaltyGiven:F3}," +
                              $"{snapshot.crowdingPenalty:F3}," +
                              $"{snapshot.totalPreySpawned}," +
                              $"{snapshot.totalPredatorsSpawned}," +
+                             $"{snapshot.highestPreyGeneration}," +
+                             $"{snapshot.highestPredatorGeneration}," +
                              $"{snapshot.foodConsumed}," +
                              $"{snapshot.waterConsumed}," +
                              $"{snapshot.totalMating}," +
@@ -1629,17 +1786,19 @@ public class Telemetry : Singleton<Telemetry>
                              $"{snapshot.animalKilled}," +
                              $"{snapshot.reachedLifeEnd}," +
                              $"{snapshot.diedFromHunger}," +
-                             $"{snapshot.diedFromThirst}");
+                             $"{snapshot.diedFromThirst},"+
+                             $"{snapshot.diedFromHealthOver}");
         }
         else
         {
-            double aliveTime = end - episodeStartTime;
             writer.WriteLine($"{snapshot.totalEpisodes},{episodeStartTime:F2},{end:F2},{aliveTime:F2}," +
                              $"{(snapshot.totalRewardGiven - lastRecordedData.totalRewardGiven):F3}," +
                              $"{(snapshot.totalPenaltyGiven - lastRecordedData.totalPenaltyGiven):F3}," +
                              $"{(snapshot.crowdingPenalty - lastRecordedData.crowdingPenalty):F3}," +
                              $"{snapshot.totalPreySpawned - lastRecordedData.totalPreySpawned}," +
                              $"{snapshot.totalPredatorsSpawned - lastRecordedData.totalPredatorsSpawned}," +
+                             $"{snapshot.highestPreyGeneration}," +
+                             $"{snapshot.highestPredatorGeneration}," +
                              $"{snapshot.foodConsumed - lastRecordedData.foodConsumed}," +
                              $"{snapshot.waterConsumed - lastRecordedData.waterConsumed}," +
                              $"{snapshot.totalMating - lastRecordedData.totalMating}," +
@@ -1647,17 +1806,50 @@ public class Telemetry : Singleton<Telemetry>
                              $"{snapshot.animalKilled - lastRecordedData.animalKilled}," +
                              $"{snapshot.reachedLifeEnd - lastRecordedData.reachedLifeEnd}," +
                              $"{snapshot.diedFromHunger - lastRecordedData.diedFromHunger}," +
-                             $"{snapshot.diedFromThirst - lastRecordedData.diedFromThirst}");
+                             $"{snapshot.diedFromThirst - lastRecordedData.diedFromThirst},"+
+                             $"{snapshot.diedFromHealthOver - lastRecordedData.diedFromHealthOver}");
         }
 
         lastRecordedData = snapshot.Clone(); // move reference forward
         writer.Flush();
+
+        FlushAgentStats();
+    }
+
+    public void LogAgentStats(AgentAnimalBase agent)
+    {
+        string type = agent.animalType == AgentAnimalBase.AnimalType.Prey ? "Prey" :
+                      agent.animalType == AgentAnimalBase.AnimalType.Predator ? "Predator" : "Unknown";
+        EpisodeMetrics EM = EcosystemManager.Instance.CumulativeData;
+        var stats = agent.stats;
+        string parentIDs = (agent.Parent1ID == agent.Parent2ID)
+            ? "-1"
+            : $"[{agent.Parent1ID} {agent.Parent2ID}]";
+
+        agentStatsBuffer.Add($"{EM.totalEpisodes},{agent.GetInstanceID()},{type}," +
+                             $"{parentIDs}," +
+                             $"{stats.Generation}," +
+                             $"{stats.speed:F3},{stats.sightRange:F3},{stats.maxSize:F3}," +
+                             $"{stats.MaxLifetime:F3},{stats.age:F3}," +
+                             $"{agent.ReasonOfDeath},{agent.GetCumulativeReward()}");
+    }
+
+    public void FlushAgentStats()
+    {
+        if (agentStatsBuffer.Count == 0)
+            return;
+        foreach (var line in agentStatsBuffer)
+            agentWriter.WriteLine(line);
+
+        agentWriter.Flush();
+        agentStatsBuffer.Clear();
     }
 
     protected override void OnDestroy()
     {
         base.OnDestroy();
         writer?.Close();
+        agentWriter?.Close();
     }
 
     public EpisodeMetrics GetLastSnapshot()

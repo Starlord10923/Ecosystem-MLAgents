@@ -62,7 +62,7 @@ public static class RewardUtility
         if (hunger > 0.7f && thirst > 0.7f)
         {
             float reward = (hunger - 0.7f) + (thirst - 0.7f); // max theoretical: (1.0 - 0.7) * 2 = 0.6
-            float scaledReward = Mathf.Clamp(reward, 0f, 0.1f) * Time.fixedDeltaTime;
+            float scaledReward = Mathf.Clamp(reward, 0f, 0.05f) * Time.fixedDeltaTime;
 
             EcosystemManager.Instance.CumulativeData.totalRewardGiven += scaledReward;
             agent.AddReward(scaledReward);

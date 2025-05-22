@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using DarkTonic.PoolBoss;
 using Unity.Barracuda;
 using UnityEngine;
 
@@ -27,6 +28,10 @@ public class EcosystemManager : Singleton<EcosystemManager>
         base.Awake();
         if (!UseHeuristicControl && UseBrain)
             Time.timeScale = TimeScale;
+
+#if !UNITY_EDITOR
+        UnityEngine.Debug.unityLogger.logEnabled = false;        
+#endif
     }
 
     public void Register(AgentBase agent)
@@ -56,26 +61,26 @@ public class EcosystemManager : Singleton<EcosystemManager>
         }
     }
 
-    private static readonly List<AgentBase> agentBuffer = new(128);
-    private void FixedUpdate()
-    {
-        int count = liveAgents.Count;
-        if (count == 0)
-            return;
+    // private static readonly List<AgentBase> agentBuffer = new(128);
+    // private void FixedUpdate()
+    // {
+    //     int count = liveAgents.Count;
+    //     if (count == 0)
+    //         return;
 
-        float ageSum = 0f;
+    //     float ageSum = 0f;
 
-        agentBuffer.Clear();
-        agentBuffer.AddRange(liveAgents); // avoids HashSet enumeration allocation
+    //     agentBuffer.Clear();
+    //     agentBuffer.AddRange(liveAgents); // avoids HashSet enumeration allocation
 
-        for (int i = 0; i < agentBuffer.Count; i++)
-        {
-            ageSum += agentBuffer[i].stats.age;
-        }
+    //     for (int i = 0; i < agentBuffer.Count; i++)
+    //     {
+    //         ageSum += agentBuffer[i].stats.age;
+    //     }
 
-        Stats.RecordSurvival(count);
-        Stats.RecordMeanAge(ageSum / count);
-    }
+    //     Stats.RecordSurvival(count);
+    //     Stats.RecordMeanAge(ageSum / count);
+    // }
 
     public Vector3 GetSpawnPosition(int quadrant = 0)
     {
@@ -146,7 +151,10 @@ public class EcosystemManager : Singleton<EcosystemManager>
 
         var allConsumables = new List<SustainedConsumable>(FindObjectsByType<SustainedConsumable>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID));
         foreach (var consumable in allConsumables)
-            Destroy(consumable.gameObject);
+        {
+            if (consumable == null || consumable.consumableType == SustainedConsumable.Type.Prey) continue;
+            PoolBoss.Despawn(consumable.transform);
+        }
 
         liveAgents.Clear(); // explicit clear, no need to re-unregister on destroy
 

@@ -135,6 +135,7 @@ MonoBehaviour:
     thirstDecayRate: 0.0075
     healthDecayRate: 0.005
     healthRegenRate: 0.01
+    numChildren: 0
   hungerBar: {fileID: 9164539213848200977}
   thirstBar: {fileID: 4860859529843394619}
   healthBar: {fileID: 2870762200617867717}
@@ -832,7 +833,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 9
+    VectorObservationSize: 15
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 2
@@ -882,6 +883,7 @@ MonoBehaviour:
     thirstDecayRate: 0.02
     healthDecayRate: 0.01
     healthRegenRate: 0.02
+    numChildren: 0
   maxSpeed: 0
   animalBar: {fileID: 7783868138811611985}
   animalType: 0

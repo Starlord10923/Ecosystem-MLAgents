@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using DarkTonic.PoolBoss;
 using MEC;
 using UnityEngine;
 
@@ -59,7 +60,7 @@ public abstract class AgentAnimalBase : AgentBase
 
         while (elapsed < target.duration)
         {
-            if (target == null)
+            if (target == null || !target.gameObject.activeInHierarchy)
             {
                 StopCurrentConsumption();
                 yield break;
@@ -107,9 +108,8 @@ public abstract class AgentAnimalBase : AgentBase
                     break;
             }
 
-            if (target.remainingValue <= 0f && target.consumableType != SustainedConsumable.Type.Prey)
+            if (target == null || !target.gameObject.activeInHierarchy || (target.remainingValue <= 0f && target.consumableType != SustainedConsumable.Type.Prey))
             {
-                Destroy(target.gameObject);
                 StopCurrentConsumption();
                 yield break;
             }
@@ -159,7 +159,7 @@ public abstract class AgentAnimalBase : AgentBase
         RewardUtility.AddMatingSuccessReward(this, partner);
     }
 
-    static readonly Collider[] probeHits = new Collider[8];   // tweak size as needed
+    static readonly Collider[] probeHits = new Collider[16];   // tweak size as needed
     public void PenalizeCrowding()
     {
         // No penalty for crowding if it can mate
@@ -229,5 +229,12 @@ public abstract class AgentAnimalBase : AgentBase
     {
         if (!Mathf.Approximately(transform.localScale.y, stats.CurrentSize))
             transform.localScale = Vector3.one * stats.CurrentSize;
+    }
+
+    private new void OnDisable()
+    {
+        base.OnDisable();
+        Timing.KillCoroutines(currentConsumption);
+        Timing.KillCoroutines(matingCoroutine);
     }
 }

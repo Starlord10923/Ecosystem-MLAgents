@@ -55,10 +55,10 @@ public class AgentBase : Agent
         if (stats == null || stats.Generation == 0)
         {
             stats = inherited ?? new AgentStats(
-                         Random.Range(10f, 20f),  // speed
-                         Random.Range(1.5f, 2.5f),  // maxSize
+                         Random.Range(10f, AgentStats.maxPossibleSpeed),  // speed
+                         Random.Range(1.5f, AgentStats.maxPossibleSize),  // maxSize
                          Random.Range(0.8f, 1.5f), // sightRange (keep in small bounds)
-                         Random.Range(90f, 110f)); // MaxLifetime
+                         Random.Range(90f, AgentStats.maxPossibleLifeTime)); // MaxLifetime
         }
 
         AgentAnimalBase animal = GetComponent<AgentAnimalBase>();
