@@ -2,7 +2,10 @@
 
 This document lists commonly used `mlagents-learn` CLI commands and options, along with explanations.
 
-Useful : mlagents-learn results/Prey001/configuration.yaml --run-id=Prey001 --force
+Useful :
+mlagents-learn results/Prey001/configuration.yaml --run-id=Prey001 --force
+
+mlagents-learn results/Prey001/configuration.yaml --run-id=Prey001 --env=Builds\Ecosystem-MLAgents.exe --no-graphics --num-envs=2 --force
 
 ## ✅ Basic Training Command
 

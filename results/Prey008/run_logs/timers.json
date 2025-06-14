@@ -1,0 +1,49 @@
+{
+    "name": "root",
+    "metadata": {
+        "timer_format_version": "0.1.0",
+        "start_time_seconds": "1749859167",
+        "python_version": "3.9.13 (main, Oct 13 2022, 21:23:06) [MSC v.1916 64 bit (AMD64)]",
+        "command_line_arguments": "C:\\Users\\heros\\Anaconda3\\envs\\UnityML\\Scripts\\mlagents-learn results/Prey008/configuration.yaml --run-id=Prey008 --env=Builds\\Ecosystem-MLAgents.exe --num-envs=5 --no-graphics --torch-device=cuda --force",
+        "mlagents_version": "0.30.0",
+        "mlagents_envs_version": "0.30.0",
+        "communication_protocol_version": "1.5.0",
+        "pytorch_version": "2.7.0+cu118",
+        "numpy_version": "1.21.2",
+        "end_time_seconds": "1749859185"
+    },
+    "total": 18.4544585,
+    "count": 1,
+    "self": 1.1918726000000035,
+    "children": {
+        "run_training.setup": {
+            "total": 0.6943266999999995,
+            "count": 1,
+            "self": 0.6943266999999995
+        },
+        "TrainerController.start_learning": {
+            "total": 16.5682592,
+            "count": 1,
+            "self": 0.00023709999999965703,
+            "children": {
+                "TrainerController._reset_env": {
+                    "total": 16.0676718,
+                    "count": 1,
+                    "self": 16.0676718
+                },
+                "TrainerController._save_models": {
+                    "total": 0.5003503000000009,
+                    "count": 1,
+                    "self": 0.011207300000002363,
+                    "children": {
+                        "RLTrainer._checkpoint": {
+                            "total": 0.48914299999999855,
+                            "count": 1,
+                            "self": 0.48914299999999855
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

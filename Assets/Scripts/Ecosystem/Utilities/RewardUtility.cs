@@ -71,7 +71,7 @@ public static class RewardUtility
         else
         {
             float penalty = ComputePenalty(hunger) + ComputePenalty(thirst);  // max ~ -0.2
-            float scaledPenalty = Mathf.Clamp(penalty, -0.1f, 0f) * Time.fixedDeltaTime;
+            float scaledPenalty = Mathf.Clamp(penalty, -0.05f, 0f) * Time.fixedDeltaTime;
 
             EcosystemManager.Instance.CumulativeData.totalPenaltyGiven += Mathf.Abs(scaledPenalty);
             agent.AddReward(scaledPenalty);
@@ -116,6 +116,6 @@ public static class RewardUtility
     {
         if (value >= 0.7f) return 0f;
         if (value >= 0.3f) return -0.0025f * ((0.7f - value) / 0.1f);
-        return -0.01f * ((0.3f - value) / 0.1f);
+        return -0.05f * ((0.3f - value) / 0.1f);
     }
 }

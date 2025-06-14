@@ -11,7 +11,7 @@ public class AgentStats
     public float maxSize = 1f;
     public static float maxPossibleSize = 3.5f;
     public float MaxLifetime = 60f;
-    public static float maxPossibleLifeTime = 120f;
+    public static float maxPossibleLifeTime = 250f;
     public float growthTime = 20f;
     [ReadOnly] public int Generation = 0;
     

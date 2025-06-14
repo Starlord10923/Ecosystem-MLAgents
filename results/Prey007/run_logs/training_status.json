@@ -1,0 +1,65 @@
+{
+    "PreyAgent": {
+        "checkpoints": [
+            {
+                "steps": 191999925,
+                "file_path": "results\\Prey007\\PreyAgent\\PreyAgent-191999925.onnx",
+                "reward": 19.860615057249863,
+                "creation_time": 1748670541.1527414,
+                "auxillary_file_paths": [
+                    "results\\Prey007\\PreyAgent\\PreyAgent-191999925.pt"
+                ]
+            },
+            {
+                "steps": 192499890,
+                "file_path": "results\\Prey007\\PreyAgent\\PreyAgent-192499890.onnx",
+                "reward": 13.194408067502081,
+                "creation_time": 1748670794.4762602,
+                "auxillary_file_paths": [
+                    "results\\Prey007\\PreyAgent\\PreyAgent-192499890.pt"
+                ]
+            },
+            {
+                "steps": 192999995,
+                "file_path": "results\\Prey007\\PreyAgent\\PreyAgent-192999995.onnx",
+                "reward": 8.939507347345351,
+                "creation_time": 1748671098.3151178,
+                "auxillary_file_paths": [
+                    "results\\Prey007\\PreyAgent\\PreyAgent-192999995.pt"
+                ]
+            },
+            {
+                "steps": 193499939,
+                "file_path": "results\\Prey007\\PreyAgent\\PreyAgent-193499939.onnx",
+                "reward": 18.74278320123752,
+                "creation_time": 1748671382.9667416,
+                "auxillary_file_paths": [
+                    "results\\Prey007\\PreyAgent\\PreyAgent-193499939.pt"
+                ]
+            },
+            {
+                "steps": 193596659,
+                "file_path": "results\\Prey007\\PreyAgent\\PreyAgent-193596659.onnx",
+                "reward": null,
+                "creation_time": 1748671443.3506043,
+                "auxillary_file_paths": [
+                    "results\\Prey007\\PreyAgent\\PreyAgent-193596659.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 193596659,
+            "file_path": "results\\Prey007\\PreyAgent.onnx",
+            "reward": null,
+            "creation_time": 1748671443.3506043,
+            "auxillary_file_paths": [
+                "results\\Prey007\\PreyAgent\\PreyAgent-193596659.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.30.0",
+        "torch_version": "2.7.0+cu118"
+    }
+}

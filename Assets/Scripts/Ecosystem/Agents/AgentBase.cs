@@ -58,7 +58,7 @@ public class AgentBase : Agent
                          Random.Range(10f, AgentStats.maxPossibleSpeed),  // speed
                          Random.Range(1.5f, AgentStats.maxPossibleSize),  // maxSize
                          Random.Range(0.8f, 1.5f), // sightRange (keep in small bounds)
-                         Random.Range(90f, AgentStats.maxPossibleLifeTime)); // MaxLifetime
+                         Random.Range(200f, AgentStats.maxPossibleLifeTime)); // MaxLifetime
         }
 
         AgentAnimalBase animal = GetComponent<AgentAnimalBase>();
